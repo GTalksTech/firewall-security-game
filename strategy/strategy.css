@@ -181,3 +181,7 @@ button.gate:hover:not(:disabled) { background: #fff3cf; }
 #road summary { cursor: pointer; font-family: var(--serif); font-weight: 700; }
 #road ul { margin-top: 0.4rem; }
 @media (max-width: 62rem) { #left { width: auto; max-height: none; font-size: 0.8rem; } #approach { display: grid; } }
+
+/* A soft vignette over the map, so the eye rests on the middle of the board. */
+#map::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(60, 40, 10, 0.28) 100%); }
+#left, #advisor, #map-help, #labels { z-index: 2; }

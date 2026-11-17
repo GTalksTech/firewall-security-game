@@ -396,3 +396,25 @@ Not verified, or known to be weak:
 - Normal-speed animation was only spot-checked by screenshot; the full playthroughs ran with reduced motion.
 - Sound, touch, a screen reader, other browsers, and a machine without WebGL (the fallback screen was written but not triggered).
 - `/speckit-analyze` was not rerun.
+
+## Strategy edition visual loops (2026-11-17)
+
+`tests/browser/strategy-playthrough.js` is the browser script used for the "all three levels" check below. It is run by hand in a Playwright session against the local server; it is not part of `node tests/run-node.mjs`.
+
+### Loop 1: the land, the wall, the light
+
+Judged against a polished hex strategy game, the first build looked like a flat tabletop: identical flat tiles, a thin grey wall, harsh even light. Changed:
+
+- Tiles are now two-layer (an earth or sand side with a narrower coloured top), vary slightly in height and shade, and have a sandy edge where they meet water. Water is glossy and bobs gently.
+- Added mountains with snow caps at the map edges, two kinds of tree in varied sizes, rounded hills, striped fields with small barns, and scattered rocks and scrub.
+- The wall has battlements and round towers; the gatehouse has two roofed towers, a keep, doors, banners and flickering torches.
+- A road runs from the map edge to the gatehouse and on to each district.
+- Warm low sun with soft shadows, a cool sky fill, filmic tone mapping, and a vignette over the map.
+
+| Check | Result |
+|---|---|
+| `node tests/run-node.mjs` | Pass: 164 tests |
+| All three levels won with three stars through the real interface | Pass: scores 187, 193, 202; no console errors; no requests to other hosts |
+| Screenshot at 1440x900, Level 1 turn 5 | Looks clearly better than before. First try was over-exposed and washed out; exposure lowered from 1.18 to 1.02. |
+
+Not done in this loop: districts and units are still the first-build models, and there are no effects when a unit is judged.

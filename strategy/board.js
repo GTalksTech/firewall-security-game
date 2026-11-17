@@ -17,12 +17,27 @@ const TERRAIN = {
   grass: { color: 0x86b85c, h: 0.32 },
   farm: { color: 0xd9c35a, h: 0.31 },
   forest: { color: 0x5c9950, h: 0.34 },
-  hills: { color: 0xa89f6e, h: 0.5 },
+  hills: { color: 0xa89f6e, h: 0.36 },
   desert: { color: 0xdfcd93, h: 0.28 },
-  stone: { color: 0xb7b2a6, h: 0.36 },
+  stone: { color: 0xb7b2a6, h: 0.4 },
+  mountain: { color: 0x9a9184, h: 0.4 },
 };
+// Flat land varies a little in height so the map does not look like a tabletop.
+function heightAt(col, row) {
+  const name = terrainAt(col, row);
+  const t = TERRAIN[name];
+  if (name === 'water' || name === 'stone') return t.h;
+  return Math.min(0.42, t.h + (hash(col + 7, row + 3) % 5) * 0.022);
+}
 const KIND_COLOR = { wanted: 0x2f9e5b, attack: 0xc8322f, unneeded: 0x7d6bb5 };
 
+const CAP = 0.07;      // thickness of the coloured top of a tile
+const GROUND = 0.5;    // the height units travel at, just above the tallest flat tile
+function neighbours(col, row) {
+  const odd = row & 1;
+  return [[col - 1, row], [col + 1, row], [col - 1 + odd, row - 1], [col + odd, row - 1], [col - 1 + odd, row + 1], [col + odd, row + 1]]
+    .filter(([c, r]) => c >= 0 && r >= 0 && c < COLS && r < ROWS);
+}
 const hash = (c, r) => (((c * 73856093) ^ (r * 19349663)) >>> 0) % 100;
 function cell(col, row) {
   return new THREE.Vector3(
@@ -35,6 +50,8 @@ function terrainAt(col, row) {
   if (col === 0 || row === 0 || col === COLS - 1 || row === ROWS - 1) return 'water';
   if (col === WALL_COL) return 'stone';
   const h = hash(col, row);
+  if ((row === 1 || row === ROWS - 2) && col >= 3 && col <= 5 && h < 62) return 'mountain';
+  if (col === COLS - 2 && (row === 2 || row === 5 || row === 8)) return 'mountain';
   if (row === GATE_ROW) return col < WALL_COL ? 'plains' : 'grass';
   if (col < WALL_COL) return h < 18 ? 'forest' : h < 30 ? 'hills' : h < 46 ? 'desert' : 'plains';
   return h < 14 ? 'farm' : h < 24 ? 'forest' : 'grass';
@@ -104,6 +121,8 @@ export function createBoard(container, labelLayer) {
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.02;
   container.prepend(renderer.domElement);
   renderer.domElement.setAttribute('aria-hidden', 'true');
 
@@ -122,9 +141,11 @@ export function createBoard(container, labelLayer) {
   controls.screenSpacePanning = false;
   controls.update();
 
-  scene.add(new THREE.HemisphereLight(0xffffff, 0xb8a882, 0.95));
-  const sun = new THREE.DirectionalLight(0xfff2d6, 1.25);
-  sun.position.set(-10, 18, 8);
+  scene.add(new THREE.HemisphereLight(0xdfeeff, 0xb39a6a, 1.15));
+  const sun = new THREE.DirectionalLight(0xffe2b0, 2.1);
+  sun.position.set(-12, 15, 9);
+  sun.shadow.bias = -0.0006;
+  sun.shadow.radius = 4;
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
   Object.assign(sun.shadow.camera, { left: -18, right: 18, top: 14, bottom: -14, near: 1, far: 60 });
@@ -134,52 +155,134 @@ export function createBoard(container, labelLayer) {
   scene.add(table);
 
   // ----- static map -----
-  const tileGeo = {};
-  const tileMat = {};
-  for (const [name, t] of Object.entries(TERRAIN)) { tileGeo[name] = new THREE.CylinderGeometry(S * 0.97, S * 0.97, t.h, 6); tileMat[name] = mat(t.color); }
-  const topOf = (col, row) => TERRAIN[terrainAt(col, row)].h;
+  const landTop = (col, row) => heightAt(col, row) + CAP;
+  const water = [];
+  const shaded = (hex, k) => new THREE.Color(hex).multiplyScalar(k).getHex();
+  const capGeo = new THREE.CylinderGeometry(S * 0.9, S * 0.97, CAP, 6);
+  const mats = {};
+  const m = (color) => (mats[color] = mats[color] || mat(color));
   for (let row = 0; row < ROWS; row += 1) {
     for (let col = 0; col < COLS; col += 1) {
       const name = terrainAt(col, row);
       const p = cell(col, row);
-      const tile = new THREE.Mesh(tileGeo[name], tileMat[name]);
-      tile.position.set(p.x, TERRAIN[name].h / 2, p.z);
-      tile.receiveShadow = true;
-      scene.add(tile);
-      const h = hash(col, row);
+      const hgt = heightAt(col, row);
+      const hsh = hash(col, row);
+      if (name === 'water') {
+        const tile = new THREE.Mesh(new THREE.CylinderGeometry(S, S, hgt, 6), new THREE.MeshPhongMaterial({ color: hsh % 3 === 0 ? 0x4a9bd0 : 0x57a8d8, shininess: 90, specular: 0xbfe6ff, flatShading: true, transparent: true, opacity: 0.93 }));
+        tile.position.set(p.x, hgt / 2, p.z);
+        tile.receiveShadow = true;
+        scene.add(tile);
+        water.push({ tile, base: hgt / 2, phase: col * 0.9 + row * 1.3 });
+        continue;
+      }
+      const shore = neighbours(col, row).some(([c, r]) => terrainAt(c, r) === 'water');
+      const side = new THREE.Mesh(new THREE.CylinderGeometry(S * 0.985, S * 0.985, hgt, 6), m(name === 'stone' ? 0x8f897c : shore ? 0xd8c696 : 0x8c7250));
+      side.position.set(p.x, hgt / 2, p.z);
+      side.receiveShadow = true;
+      scene.add(side);
+      const tint = 0.94 + (hsh % 7) * 0.02;
+      const cap = new THREE.Mesh(capGeo, m(shaded(TERRAIN[name].color, tint)));
+      cap.position.set(p.x, hgt + CAP / 2, p.z);
+      cap.receiveShadow = true;
+      scene.add(cap);
+      const top = hgt + CAP;
       if (name === 'forest') {
-        for (let i = 0; i < 3; i += 1) {
-          const a = h + i * 2.1;
-          scene.add(at(cyl(0, 0.2, 0.5, 6, 0x356b39), p.x + Math.cos(a) * 0.4, TERRAIN.forest.h + 0.3, p.z + Math.sin(a) * 0.4));
-          scene.add(at(cyl(0.04, 0.04, 0.12, 5, 0x5b4025), p.x + Math.cos(a) * 0.4, TERRAIN.forest.h + 0.05, p.z + Math.sin(a) * 0.4));
+        for (let i = 0; i < 4; i += 1) {
+          const ang = hsh + i * 1.7;
+          const rad = 0.28 + (i % 2) * 0.22;
+          const x = p.x + Math.cos(ang) * rad;
+          const z = p.z + Math.sin(ang) * rad;
+          const sc = 0.8 + ((hsh + i * 13) % 5) * 0.09;
+          scene.add(at(cyl(0.035 * sc, 0.045 * sc, 0.16 * sc, 5, 0x5b4025), x, top + 0.08 * sc, z));
+          if ((hsh + i) % 3 === 0) {
+            const crown = new THREE.Mesh(new THREE.IcosahedronGeometry(0.2 * sc, 0), m(0x4c8f44)); crown.castShadow = true;
+            scene.add(at(crown, x, top + 0.3 * sc, z));
+          } else {
+            scene.add(at(cyl(0, 0.2 * sc, 0.3 * sc, 6, 0x2f6b3a), x, top + 0.28 * sc, z));
+            scene.add(at(cyl(0, 0.15 * sc, 0.26 * sc, 6, 0x3a7d45), x, top + 0.46 * sc, z));
+          }
         }
       } else if (name === 'hills') {
-        const bump = new THREE.Mesh(new THREE.DodecahedronGeometry(0.42), mat(0x958b5c)); bump.castShadow = true;
-        scene.add(at(bump, p.x + 0.1, TERRAIN.hills.h, p.z));
+        for (const [dx, dz, r] of [[0.12, 0, 0.42], [-0.3, 0.25, 0.26], [-0.2, -0.3, 0.2]]) {
+          const bump = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 0), m(0x97905f)); bump.castShadow = true; bump.scale.y = 0.6;
+          scene.add(at(bump, p.x + dx, top + 0.02, p.z + dz));
+        }
+      } else if (name === 'mountain') {
+        scene.add(at(cyl(0, 0.78, 1.5, 6, 0x857c72), p.x - 0.1, top + 0.75, p.z));
+        scene.add(at(cyl(0, 0.3, 0.56, 6, 0xf5f3ee), p.x - 0.1, top + 1.23, p.z));
+        scene.add(at(cyl(0, 0.5, 0.9, 5, 0x91887c), p.x + 0.42, top + 0.45, p.z + 0.25));
       } else if (name === 'farm') {
-        for (let i = -1; i <= 1; i += 1) scene.add(at(box(1.0, 0.03, 0.12, 0xb89a3a), p.x, TERRAIN.farm.h + 0.015, p.z + i * 0.3));
+        for (let i = -2; i <= 2; i += 1) scene.add(at(box(1.0 - Math.abs(i) * 0.16, 0.035, 0.1, i % 2 ? 0xc9a63c : 0xa8bf4f), p.x, top + 0.018, p.z + i * 0.19));
+        if (hsh % 2 === 0) { scene.add(at(box(0.22, 0.18, 0.2, 0xe9e2d0), p.x + 0.5, top + 0.09, p.z - 0.45)); const r = cyl(0, 0.2, 0.14, 4, 0xa6452f); r.rotation.y = Math.PI / 4; scene.add(at(r, p.x + 0.5, top + 0.25, p.z - 0.45)); }
+      } else if (name === 'desert' && hsh % 3 === 0) {
+        const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.16, 0), m(0xbda77a)); rock.castShadow = true;
+        scene.add(at(rock, p.x + 0.3, top + 0.06, p.z - 0.2));
+      } else if (name === 'plains' && hsh % 4 === 0) {
+        for (let i = 0; i < 3; i += 1) scene.add(at(cyl(0, 0.05, 0.12, 4, 0x8fa24a), p.x + Math.cos(hsh + i * 2) * 0.4, top + 0.06, p.z + Math.sin(hsh + i * 2) * 0.4));
       }
     }
   }
+
   // The wall and its gatehouse.
-  const stoneTop = TERRAIN.stone.h;
+  const stoneTop = TERRAIN.stone.h + CAP;
+  const STONE = 0x9a9488;
+  const STONE_DARK = 0x7a7468;
+  function tower(x, z, r, hgt, roofColor) {
+    const g = new THREE.Group();
+    g.add(at(cyl(r, r * 1.12, hgt, 10, STONE_DARK), 0, hgt / 2, 0));
+    g.add(at(cyl(r * 1.18, r * 1.18, 0.12, 10, STONE), 0, hgt + 0.06, 0));
+    for (let i = 0; i < 6; i += 1) g.add(at(box(0.11, 0.14, 0.11, STONE), Math.cos(i * 1.047) * r * 1.05, hgt + 0.19, Math.sin(i * 1.047) * r * 1.05));
+    if (roofColor) g.add(at(cyl(0, r * 1.05, r * 1.7, 10, roofColor), 0, hgt + 0.12 + r * 0.85, 0));
+    g.position.set(x, stoneTop, z);
+    scene.add(g);
+    return g;
+  }
   for (let row = 1; row < ROWS - 1; row += 1) {
     const p = cell(WALL_COL, row);
-    if (row !== GATE_ROW) scene.add(at(cyl(0.3, 0.34, 0.9, 8, 0x8d877a), p.x, stoneTop + 0.45, p.z));
+    if (row !== GATE_ROW) tower(p.x, p.z, 0.27, 0.95, null);
     if (row < ROWS - 2) {
       const q = cell(WALL_COL, row + 1);
-      const seg = box(0.26, 0.62, p.distanceTo(q), 0x9c968a);
-      seg.position.set((p.x + q.x) / 2, stoneTop + 0.31, (p.z + q.z) / 2);
-      seg.lookAt(q.x, stoneTop + 0.31, q.z);
+      const len = p.distanceTo(q);
+      const seg = new THREE.Group();
+      seg.add(at(box(0.3, 0.66, len, STONE), 0, 0.33, 0));
+      seg.add(at(box(0.4, 0.06, len, STONE_DARK), 0, 0.69, 0));
+      for (let i = 0; i < 5; i += 1) seg.add(at(box(0.09, 0.12, 0.16, STONE), -0.15, 0.78, (i - 2) * (len / 5.4)));
+      seg.position.set((p.x + q.x) / 2, stoneTop, (p.z + q.z) / 2);
+      seg.lookAt(q.x, stoneTop, q.z);
       scene.add(seg);
     }
   }
   const gate = cell(WALL_COL, GATE_ROW);
-  for (const dz of [-0.55, 0.55]) scene.add(at(cyl(0.3, 0.36, 1.5, 8, 0x7c766a), gate.x, stoneTop + 0.75, gate.z + dz));
-  for (const dz of [-0.55, 0.55]) { const r = cyl(0, 0.4, 0.45, 8, 0x2f6fb5); scene.add(at(r, gate.x, stoneTop + 1.72, gate.z + dz)); }
-  scene.add(at(box(0.4, 0.3, 1.1, 0x7c766a), gate.x, stoneTop + 1.2, gate.z));
-  const gateGlow = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.9, 0.7), new THREE.MeshBasicMaterial({ color: 0xffe08a, transparent: true, opacity: 0 }));
+  for (const dz of [-0.62, 0.62]) tower(gate.x, gate.z + dz, 0.36, 1.7, 0x2f6fb5);
+  scene.add(at(box(0.62, 0.5, 1.0, STONE_DARK), gate.x, stoneTop + 1.25, gate.z));
+  scene.add(at(box(0.7, 0.08, 1.1, STONE), gate.x, stoneTop + 1.54, gate.z));
+  for (let i = -2; i <= 2; i += 1) scene.add(at(box(0.12, 0.14, 0.12, STONE), gate.x - 0.3, stoneTop + 1.65, gate.z + i * 0.22));
+  scene.add(at(box(0.16, 0.9, 0.84, 0x5b4025), gate.x, stoneTop + 0.5, gate.z)); // the doors
+  for (const dz of [-0.2, 0.2]) scene.add(at(box(0.18, 0.86, 0.03, 0x3d2a17), gate.x, stoneTop + 0.5, gate.z + dz));
+  for (const dz of [-0.62, 0.62]) {
+    scene.add(at(cyl(0.012, 0.012, 0.6, 5, 0x3d2a17), gate.x, stoneTop + 2.75, gate.z + dz));
+    scene.add(at(box(0.3, 0.2, 0.02, 0xf2c96b), gate.x + 0.16, stoneTop + 2.92, gate.z + dz));
+  }
+  const torches = [];
+  for (const dz of [-0.98, 0.98]) for (const dx of [-0.42, 0.42]) {
+    const flame = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.18, 5), new THREE.MeshBasicMaterial({ color: 0xffb02e }));
+    scene.add(at(cyl(0.02, 0.02, 0.5, 5, 0x3d2a17), gate.x + dx, stoneTop + 0.25, gate.z + dz));
+    scene.add(at(flame, gate.x + dx, stoneTop + 0.58, gate.z + dz));
+    torches.push(flame);
+  }
+  const gateGlow = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.0, 0.9), new THREE.MeshBasicMaterial({ color: 0xffe08a, transparent: true, opacity: 0 }));
   scene.add(at(gateGlow, gate.x, stoneTop + 0.5, gate.z));
+
+  // A road runs from the edge of the map to the gatehouse; level roads continue to each district.
+  function road(from, to, parent) {
+    const len = from.distanceTo(to);
+    const seg = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.03, len), m(0xcbb485));
+    seg.position.set((from.x + to.x) / 2, GROUND - 0.005, (from.z + to.z) / 2);
+    seg.lookAt(to.x, GROUND - 0.005, to.z);
+    seg.receiveShadow = true;
+    parent.add(seg);
+  }
+  road(cell(0, GATE_ROW), cell(WALL_COL, GATE_ROW), scene);
 
   // ----- per-level things -----
   let level = new THREE.Group();
@@ -221,15 +324,16 @@ export function createBoard(container, labelLayer) {
       const p = cell(col, row);
       const d = makeDistrict(h.hostile, i);
       d.scale.setScalar(1.35);
-      d.position.set(p.x, topOf(col, row), p.z);
+      d.position.set(p.x, landTop(col, row), p.z);
       level.add(d);
-      districts[h.address] = { group: d, pos: new THREE.Vector3(p.x, topOf(col, row), p.z), name: h.name };
+      districts[h.address] = { group: d, pos: new THREE.Vector3(p.x, landTop(col, row), p.z), name: h.name };
+      road(cell(WALL_COL, GATE_ROW), p, level);
       label(`d:${h.address}`, `lbl-district${h.hostile ? ' hostile' : ''}`).textContent = h.name;
     });
     const rp = cell(2, 1);
     rivalCity = makeDistrict(false, 1);
     rivalCity.scale.setScalar(0.8);
-    rivalCity.position.set(rp.x, topOf(2, 1), rp.z);
+    rivalCity.position.set(rp.x, landTop(2, 1), rp.z);
     level.add(rivalCity);
     label('rival', 'lbl-rival').textContent = rivalName;
     label('zone-left', 'lbl-zone').textContent = leftName;
@@ -250,7 +354,7 @@ export function createBoard(container, labelLayer) {
   function restPos(u, travel) {
     const e = ends(u);
     const p = e.start.clone().lerp(e.front, Math.min(u.step, travel - 1) / travel);
-    p.y = 0.34;
+    p.y = GROUND;
     return p;
   }
   function tween(obj, to, dur, opts = {}) {
@@ -318,7 +422,7 @@ export function createBoard(container, labelLayer) {
     const n = labels.get(`u:${e.unit.id}`);
     if (n) { n.remove(); labels.delete(`u:${e.unit.id}`); }
     const en = ends(m.unit);
-    const gatePos = new THREE.Vector3(gate.x + (m.unit.outbound ? 0.5 : -0.5), 0.36, gate.z);
+    const gatePos = new THREE.Vector3(gate.x + (m.unit.outbound ? 0.6 : -0.6), GROUND, gate.z);
     await tween(m.group, gatePos, 0.4, { hop: 0.2 });
     onJudge();
     const through = e.verdict.verdict !== 'denied-by-rule' && e.verdict.verdict !== 'denied-implicit';
@@ -330,13 +434,13 @@ export function createBoard(container, labelLayer) {
       const back = gatePos.clone().lerp(en.start, 0.25); back.y = -0.6;
       await tween(m.group, back, 0.45, { hop: 0.5 });
     } else if (e.verdict.verdict === 'stopped-by-control') {
-      const mid = gatePos.clone().lerp(en.goal, 0.3); mid.y = 0.36;
+      const mid = gatePos.clone().lerp(en.goal, 0.3); mid.y = GROUND;
       await tween(m.group, mid, 0.35);
       float(e.verdict.control === 'dnsFiltering' ? 'FILTERED' : 'SCANNED', mid.clone().setY(1.4), 'good');
       const down = mid.clone(); down.y = -0.6;
       await tween(m.group, down, 0.3);
     } else {
-      const goal = en.goal.clone(); goal.y = 0.4;
+      const goal = en.goal.clone(); goal.y = GROUND;
       await tween(m.group, goal, 0.6, { hop: 0.3 });
       const top = goal.clone().setY(1.7);
       if (e.outcome === 'breach') { burn(m.unit.host, 3.5); float('BREACH', top, 'bad'); }
@@ -392,6 +496,8 @@ export function createBoard(container, labelLayer) {
       }
     }
     gateGlow.material.opacity = Math.max(0, gateGlow.material.opacity - dt * 1.6);
+    for (const wt of water) wt.tile.position.y = wt.base + Math.sin(time * 1.3 + wt.phase) * 0.018;
+    torches.forEach((f, i) => { f.scale.y = 0.8 + Math.abs(Math.sin(time * 11 + i * 2.3)) * 0.7; });
     controls.update();
     renderer.render(scene, camera);
 
