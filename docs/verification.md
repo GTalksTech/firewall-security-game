@@ -371,3 +371,28 @@ Problems seen in screenshots at 1280x800 and 390 wide, and what changed:
 - Sound, touch dragging, a screen reader, and any browser other than automated Chromium.
 - Reduced motion in the arcade edition: decorative CSS animation is switched off, but the game itself is motion.
 - `/speckit-analyze` was not rerun after the constitution moved to 3.0.0 and `specs/002-arcade-edition/spec.md` was added.
+
+## Strategy edition: turn-based 3D hex game (2026-11-17)
+
+Built after play feedback that the arcade version did not explain itself and was not the kind of game wanted. It is now `index.html`; the arcade version moved to `arcade.html`. Requirements are in `specs/003-strategy-edition/spec.md`. The constitution is at 3.1.0: it names the strategy edition as the main game and permits one rendering library copied into the repository.
+
+| Check | Result |
+|---|---|
+| `node tests/run-node.mjs` | Pass: 164 tests, 25 of them new for the turn rules |
+| Home menu, briefing, guide steps, How to play (SR-001 to SR-004) | Pass: opened and read in an automated browser at 1440x900 and 1280x720 |
+| Guide: Play, Begin, Next, Next, add the gate marked TRY, End turn, by keyboard only (Enter) | Pass: focus lands on the next thing to press each time. Two focus faults found and fixed (focus was lost after adding the first gate; after "Next" it went to End turn instead of the highlighted gate list). |
+| All three levels played start to finish through the real interface, adding the reference gates as requests arrive (reduced motion on, to run fast) | Pass: three stars on each (scores 187, 193, 202), no console errors |
+| Level 2 played carelessly (port gate, no DECRYPT) | Pass: advisor named the attack, the gate and the fix three turns ahead; after the hits the gate was badged and DECRYPT flagged; the level ended as Breached with a retry |
+| 3D map renders in headless Chromium (WebGL) | Pass by screenshot |
+| No requests leave the machine | Pass by reading the code: the page loads only its own files; three.js is in `vendor/` |
+
+Faults found by looking at screenshots and fixed: gate labels showed "[object HTMLSpanElement]"; the requests panel hid the left of the map (now a strip along the top); unit banners piled on top of each other (now pushed apart on screen).
+
+Not verified, or known to be weak:
+
+- No person has played it. Fun, pacing and difficulty are untested.
+- At 390 wide the page fits without sideways scroll, but the map is too small to be useful. This version is for desktop and laptop screens.
+- Banners can still crowd when many units share one corner of the map.
+- Normal-speed animation was only spot-checked by screenshot; the full playthroughs ran with reduced motion.
+- Sound, touch, a screen reader, other browsers, and a machine without WebGL (the fallback screen was written but not triggered).
+- `/speckit-analyze` was not rerun.

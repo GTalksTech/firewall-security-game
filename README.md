@@ -1,30 +1,30 @@
 # Firewall Security Faceoff
 
-**Drag firewall rules onto your wall while the traffic is already flying at it. Let the right packets in, keep the rest out, and outlast the rival firewall.**
+**A turn-based strategy game about firewall rules. Your network is a city on a hex map, your firewall is its gatehouse, and every rule is a gate. Let the right traffic in, turn the rest away, and outlast the rival.**
 
-Firewall Security Faceoff is a real-time tower-defense game for network engineers and students. Your firewall is a wall and every rule is a gate on it. Wanted traffic, attacks, and traffic nobody asked for fly at the wall without stopping. Each packet is checked from the top gate down: the first gate that matches lets it through or bounces it, and anything that matches no gate drops into the implicit deny. You add, remove and reorder gates while the traffic is flowing. New business orders arrive mid-run, each new attack wave punishes a lazy answer to the last order, and a rival firewall faces the same traffic in the corner. The firewall is vendor-neutral.
+![Level 2: an attack carrying malware is three turns from the gatehouse, and the advisor says which switch would stop it](assets/card.png)
 
-![Level 2 of the arcade edition: a malware download has just got through a gate whose DECRYPT switch is off](assets/card.png)
+Firewall Security Faceoff is for network engineers and students. Traffic marches across a 3D hex map toward your gatehouse: wagons are wanted traffic, raiders are attacks, drifters are traffic nobody asked for. Every unit carries a banner saying what it is and what your gates, as they stand right now, will do with it. Each turn you make up to three changes to your gates, then end the turn and everything moves one step. Gates are checked from the top down, the first match decides, and anything no gate allows is turned away. The firewall is vendor-neutral.
 
 | Level | What you defend | What it teaches |
 | --- | --- | --- |
 | 1. Open the storefront | A web, mail and jump server facing the Internet | First match wins, implicit deny, least privilege, why a blocklist gate must sit above the gate it guards |
-| 2. Let staff browse safely | An office browsing the Internet | Application gates instead of port gates, SCAN, why SCAN needs DECRYPT for locked traffic, DNS FILTER |
+| 2. Let staff browse safely | An office going out to the Internet | Application gates instead of port gates, SCAN, why SCAN needs DECRYPT for encrypted traffic, DNS FILTER |
 | 3. Clean up the data center | A database and an application server | Gates that name who is allowed, stopping a break-in from spreading, scanning traffic you trust |
 
-**How to play.** Drag a gate from the tray onto the wall, or click it. Drag it up or down to reorder, and off the wall to remove it. Gates marked **TRY** would let in wanted traffic that is being turned away. On Levels 2 and 3 a gate has switches under it; click one to turn it on. When something gets through, the gate that let it in is badged and, if a switch would have stopped it, that switch flashes. P pauses, and you can still change the wall while paused. Keyboard: Tab to a gate, Enter adds or removes it, the arrow keys move it, and S, D and F flip its switches.
+**It explains itself.** There is a home menu, a How to Play screen, a briefing before each level, and a guided first level that walks you through the first turns and cannot be lost. An advisor line always says what needs fixing, and spare gates that would help are marked TRY.
 
-You have five hearts, a patience meter for the people you are meant to be serving, a combo multiplier, and one to three stars per level. Three stars needs a run with nothing wrongly let in or turned away, and a final wall the rule engine agrees is correct.
+**Controls.** Everything is a button: click a spare gate to add it, use ▲ ▼ ✕ on a gate to move or remove it, click a switch to flip it, press End turn. Drag the map to turn it and scroll to zoom. It all works from the keyboard with Tab and Enter.
 
-**Two editions.** `index.html` is the arcade edition described above. `classic.html` is the earlier text edition: no motion, no clock, both difficulty tiers, hints, and full written explanations. Both use the same rule engine and level data.
+**Three versions of the same lessons, one rule engine.** `index.html` is the strategy game above. `arcade.html` is a real-time 2D arcade version. `classic.html` is text only, with no motion, both difficulty tiers, and full written explanations.
 
 A project from **NAF AC6 — Loop Engineering, Spec-Driven Development & the Future of VibeOps**.
 
 | Project | Details |
 | --- | --- |
-| Status | All three levels playable in both editions. 139 automated checks pass; browser checks are recorded in [docs/verification.md](docs/verification.md), including what was not verified |
+| Status | All three levels playable in all three versions. 164 automated checks pass; browser checks are recorded in [docs/verification.md](docs/verification.md), including what was not verified |
 | Networking topic | Next-generation firewall policy: rule order, least privilege, application and user identity, inspection, TLS decryption, DNS filtering, segmentation |
-| Typical session | About 2 minutes per level per attempt (not yet timed with a first-time player) |
+| Typical session | 15 to 18 turns per level (not yet timed with a first-time player) |
 | Live demo | Not published |
 | Built by | GTalksTech |
 
@@ -46,12 +46,11 @@ Open **http://127.0.0.1:8000** in a current desktop browser. Keep the terminal r
 
 ## How it works
 
-- **Every verdict comes from one rule engine** (`engine/rules.js`). The arcade edition asks it about each packet at the moment the packet reaches the wall, against the wall as it stands right then. The animation decides nothing.
-- **The traffic is a fixed timetable**, built from the level data: a short warm-up of wanted traffic only, then one wave per attack step. The same play always meets the same traffic.
-- **Orders:** each level starts with one business order and adds more mid-run. Traffic for a new order gets a few seconds' grace before turning it away costs patience.
-- **Score:** points for each wanted packet served and each attack stopped, multiplied by a combo that resets when something goes wrong. Stars are saved in the browser.
-- **The arcade levels use each level's harder challenge.** The text edition offers both tiers.
-- **No text entry anywhere.** Sound effects are synthesized in the browser and can be switched off.
+- **Every verdict comes from one rule engine** (`engine/rules.js`). The banners, the advisor and the end-of-turn results all ask it; nothing else decides whether traffic gets in.
+- **The traffic is a fixed timetable** built from the level data. Units take three turns to reach the gatehouse, each attack appears twice, and new requests arrive mid-level. The same play always meets the same traffic.
+- **Losing:** each attack that gets in costs a heart, each piece of wanted traffic turned away costs trust; run out of either and the level restarts. **Stars:** three for a level with nothing wrongly let in or turned away and a final gatehouse the engine agrees is correct.
+- **The 3D map uses three.js**, copied into `vendor/` with its license. Nothing is downloaded when you play, and there is nothing to install.
+- **No text entry anywhere.** Sound effects are synthesized in the browser and can be switched off on the home menu.
 
 ## What the game simplifies
 
@@ -76,35 +75,36 @@ node tests/run-node.mjs
 
 In the browser, with the server above running, open **http://127.0.0.1:8000/tests/**.
 
-Both run the same 139 checks: the 33 hand-worked rule-base cases from the specification, content validation, session behavior, and the arcade timetable, labels, hints and star rules. Expected results in `tests/cases.js` are copied from the specification and are never computed by the engine under test.
+Both run the same 164 checks: the 33 hand-worked rule-base cases from the specification, content validation, session behavior, the arcade timetable, labels, hints and star rules, and the strategy game's turn rules. Expected results in `tests/cases.js` are copied from the specification and are never computed by the engine under test.
 
 ## Project layout
 
 ```text
-index.html                       Arcade edition shell
-game/arcade.js, game/game.css    Arcade edition: drawing, input, the real-time loop
-game/logic.js                    Arcade timetable, labels, hints, stars (no screen; tested)
-classic.html, style.css, main.js Text edition shell, styles, start
-ui/                              Text edition views, controls, and its playfield
+index.html                       Strategy game shell
+strategy/main.js, strategy.css   Strategy game: screens, gatehouse panel, advisor, guide
+strategy/board.js                The 3D hex map (draws only; decides nothing)
+strategy/turns.js                Turn timetable and turn rules (no screen; tested)
+vendor/                          three.js and its license
+arcade.html, game/               Real-time arcade version; game/logic.js is shared and tested
+classic.html, style.css, main.js, ui/   Text version
 engine/rules.js                  Pure rule evaluation, outcome, and score
 engine/content.js                Validates the level data before play
-engine/state.js                  Text edition session state
-engine/feedback.js               Turns results into explanations
-data/levels.json                 All level content, rivals, hints, sources, arcade settings
+engine/state.js, feedback.js     Text version session state and explanations
+data/levels.json                 All level content, rivals, hints, sources, briefings
 tests/                           Test harness, cases, and both runners
 docs/verification.md             What was checked, and what was not
 specs/                           Specifications, plan, and tasks
 ```
 
-To add or change a level, edit `data/levels.json` and add its hand-worked cases to `tests/cases.js`. No engine or interface code changes. Adding `?speed=4` to the address runs the arcade clock faster; it is a testing aid.
+To add or change a level, edit `data/levels.json` and add its hand-worked cases to `tests/cases.js`. No engine or interface code changes. Adding `?speed=4` to the arcade version's address runs its clock faster; it is a testing aid.
 
 ## Known limits
 
-- Tested in one browser engine (Chromium), driven by an automated browser. No person has play-tested the finished three levels, so difficulty and pacing are untuned.
-- Not tested with a screen reader. The arcade edition is real time; a player who cannot use it has the text edition, which has no clock.
-- Sound effects were not listened to during testing; only the toggle was checked.
-- Touch dragging was not tested. Phone width (390) fits on screen but is tight.
-- The arcade edition has no hint ladder; its help is the TRY marks, gate badges, and one-line prompts.
+- No person has play-tested the strategy game yet. It was driven by an automated browser, which shows it works and can be won, not that it is fun or well paced.
+- Made for a desktop or laptop screen. On a phone the map is too small to be useful.
+- The 3D models are simple shapes built in code, not sculpted art, and unit banners can crowd each other when many units share one corner of the map.
+- Needs a browser with WebGL; if it is missing, the game offers the other two versions.
+- Tested in one browser engine (Chromium). Not tested with a screen reader or touch. Sound was not listened to.
 - The turn-by-turn battle mode from the original idea is not built.
 - See [docs/verification.md](docs/verification.md) for the full list of checks that were not run.
 

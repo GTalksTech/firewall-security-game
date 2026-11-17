@@ -60,4 +60,4 @@ export async function runSuites(suiteNames, importSuite, content) {
   return result;
 }
 
-export const SUITES = ['rules.test.js', 'content.test.js', 'state.test.js', 'arcade.test.js'];
+export const SUITES = ['rules.test.js', 'content.test.js', 'state.test.js', 'arcade.test.js', 'strategy.test.js'];

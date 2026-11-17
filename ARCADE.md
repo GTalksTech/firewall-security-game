@@ -4,15 +4,15 @@ arcade_version: 1
 game:
   title: "Firewall Security Faceoff"
   slug: firewall-security-faceoff
-  tagline: "Drag firewall rules onto your wall while the packets are already flying at it."
-  summary: "A real-time tower-defense game where each firewall rule is a gate on your wall. Wanted traffic and attacks never stop coming, new business orders arrive mid-run, and you add, reorder and switch on scanners while a rival firewall faces the same traffic. Three levels teach first-match rule order, implicit deny, least privilege, application-aware rules, inspection and TLS decryption, DNS filtering, and identity-based segmentation."
+  tagline: "Turn-based hex strategy where your firewall rules are the gates of a city."
+  summary: "A turn-based 3D strategy game. Your network is a city on a hex map and your firewall is its gatehouse. Wanted traffic and attacks march toward it, each with a banner showing what your rules will do, and each turn you add, reorder and switch gates before ending the turn. Three levels teach first-match rule order, implicit deny, least privilege, application-aware rules, inspection and TLS decryption, DNS filtering, and identity-based segmentation. It has a home menu, a How to Play screen, level briefings, and a guided first level."
   topics: [Firewall policy, NGFW, Least privilege, Rule order, TLS inspection, Segmentation]
   category: security
   skill_level: intermediate
-  play_minutes: 10
+  play_minutes: 15
   levels: 3
   card_image: assets/card.png
-  card_image_alt: "A pixel-style playfield: packets fly from the left at a brick wall holding three green rule gates, servers stand on the right, and a flashing DECRYPT OFF switch marks the gate that just let malware through."
+  card_image_alt: "A 3D hex map with a stone wall down the middle. Wagons and raiders approach from the left under banners reading GETS IN, BLOCKED and WILL BREACH; city districts stand on the right; a side panel lists the firewall rules as numbered gates."
   repo: https://github.com/GTalksTech/firewall-security-game
   repo_path: ""
   license: Apache-2.0
@@ -36,7 +36,7 @@ build:
     framework_version: "1.4.2.dev0"
     artifacts: [constitution, spec, clarify, plan, tasks, analyze, checklists]
     task_count: 68
-    loops_or_phases: 6   # two Ralph runs of three iterations each
+    loops_or_phases: 6   # two Ralph runs of three iterations each, on earlier versions
   model: "claude-fable-5-2"
   helper_models: []
   harness: Claude Code
@@ -48,8 +48,8 @@ build:
     - "MITRE ATT&CK Enterprise technique and mitigation pages"
     - "NAF AC6 workshop StarterKit (CONSTITUTION.md, SPEC.md, PLAN.md) and LAB README"
   skills_and_plugins: [speckit-constitution, speckit-specify, speckit-clarify, speckit-plan, speckit-tasks, speckit-analyze, speckit-implement, ralph-loop plugin]
-  other_tools: [Node.js 26 for the test runner, Python http.server, Chromium via Playwright, curl, GitHub CLI]
-  human_prompts: 20
+  other_tools: [three.js r160 (MIT) for the 3D map, Node.js 26 for the test runner, Python http.server, Chromium via Playwright, curl, GitHub CLI]
+  human_prompts: 23
   usage:
     input_tokens: unknown
     output_tokens: unknown
@@ -58,7 +58,7 @@ build:
 
 runtime:
   kind: static-web
-  stack: [HTML, CSS, JavaScript ES modules, Canvas 2D, Web Audio]
+  stack: [HTML, CSS, JavaScript ES modules, WebGL via three.js r160 (vendored), Canvas 2D, Web Audio]
   start: "python3 -m http.server 8000 --bind 127.0.0.1"
   url_after_start: "http://127.0.0.1:8000"
   hosted_url: ""
@@ -68,12 +68,12 @@ runtime:
   requires_api_key: false
   uses_ai_at_runtime: false
   browsers: [Chromium 157 via Playwright]
-  accessibility: "Every control is a button reachable by keyboard; Level 1 of the arcade edition was won by keyboard alone in an automated browser. States are shown in words and shapes as well as color, and events are announced through a live region. The arcade edition is real time and can be paused while still editing; a text edition with no motion or clock is included. Not tested with a screen reader or touch. Sound was not listened to."
+  accessibility: "Every control is a button reachable by keyboard; the start of Level 1 was played by keyboard alone in an automated browser. The map is a picture of state that is also given as text: a list of everything on the road with its forecast, a log, and live-region announcements. States use words and shapes as well as color. With reduced motion requested, moves are instant. A text-only version is included. Not tested with a screen reader or touch. Sound was not listened to."
   save_state: browser local storage (stars and best score per level)
 
 verification:
   tests: "node tests/run-node.mjs"
-  tests_passing: 139
+  tests_passing: 164
   facts_sourced_from:
     - "NIST SP 800-41 Rev. 1, sections 2.1.2, 2.1.3, 2.3, 4, 4.1.1, 4.2, 4.3, 5.2.2"
     - "NIST SP 800-207, section 2.1"
@@ -84,23 +84,24 @@ verification:
     - "The firewall identifies every application and user correctly and immediately"
     - "Addresses match exactly; no subnet matching"
     - "NAT, routing, VPN, high availability, IPv6, logging, URL filtering, DNS over HTTPS and decryption exemptions are not modeled"
-    - "The arcade edition departs from the first specification's submit-then-test flow and scoring; a short second specification records what was built"
+    - "The strategy game was designed and built in one sitting after play feedback; its specification was written alongside the build, not before it"
+    - "3D models are simple shapes built in code; no person has play-tested it; a phone screen is too small for it"
     - "No human first-time player, screen reader, or second browser engine has tested it"
 ---
 
 ## In one paragraph
 
-Firewall Security Faceoff is a real-time tower-defense game about firewall policy. Each rule is a gate on your wall. Packets never stop coming, and each is checked gate by gate from the top: the first gate that matches decides, and anything that matches nothing falls to the implicit deny. You drag gates on, off and into order while traffic flows, switch on scanners, and answer new business orders mid-run while a rival firewall faces the same traffic. It is for network engineers and students who know addresses and ports and want to feel why rule order, least privilege, application-aware rules, and inspection matter. A text edition with no clock is included.
+Firewall Security Faceoff is a turn-based strategy game about firewall policy. Your network is a city on a 3D hex map and your firewall is its gatehouse. Wagons (wanted traffic), raiders (attacks) and drifters (traffic nobody asked for) march toward it, each under a banner that says what your rules will do with it. Each turn you make up to three changes to your gates, then end the turn. Gates are checked top to bottom, the first match decides, and anything no gate allows is turned away. It is for network engineers and students who know addresses and ports. A real-time arcade version and a text-only version of the same lessons are included.
 
 ## How it was built
 
-The constitution came first, adapted from the workshop starter. The specification followed, with the grading model and hand-worked cases for every level written before any code. Clarification settled the sources and banned free-form text entry. The plan listed thirteen contradictions between the starter plan, the spec, and the constitution and resolved each one. Analysis found that the claim "this control stops that attack" had no source; reading each MITRE ATT&CK technique page fixed three citations and moved one claim to NIST. The engine was built test-first and all hand-worked cases passed on the first run.
+The constitution came first, adapted from the workshop starter. The specification followed, with the grading model and hand-worked cases for every level written before any code. Clarification settled the sources and banned free-form text entry. The plan resolved thirteen contradictions between the starter plan, the spec, and the constitution. Analysis found that the claim "this control stops that attack" had no source; reading each MITRE ATT&CK technique page fixed three citations. The rule engine was built test-first and all hand-worked cases passed on the first run.
 
-Then the human played it and said, three times and with rising force, that it was text on a screen and not a game. The interface was rebuilt three times: an animated playfield, then a full-screen arcade, then a real-time game where the wall is edited while traffic flows. The rule engine and its tests did not change once through all of that; only the layer that asks it questions did. The constitution was amended twice to allow what the human actually wanted.
+Then the human played it. Four times they said, in different words, that it was not the game they wanted: text on a screen, then not interactive enough, then fun but unexplained and not the kind of game they love. The interface was rebuilt four times: an animated playfield, a full-screen arcade, a real-time arcade, and finally a turn-based 3D hex strategy game with a menu, rules screen, briefings and a guided first level. The rule engine and its tests did not change once. Each rebuild only changed the layer that asks the engine questions, and each new layer got its own screen-free logic module and tests.
 
 ## What we'd tell the next builder
 
 - Write the expected results by hand in the spec before the engine exists. When the tests pass first time you know the model and the code agree.
-- Keep the part that decides right and wrong separate from the part that draws. We threw away the interface three times and never touched the engine.
-- A specification can be complete, consistent and correct and still describe something nobody wants to play. Put a playable slice in front of a person early, and treat "this is not fun" as a requirement the spec missed.
-- Test the screen-free parts of the game layer too. One of those tests caught an attack and a customer that looked identical on screen.
+- Keep the part that decides right and wrong separate from the part that draws. We threw away the interface four times and never touched the engine.
+- A specification can be complete, consistent and correct and still describe something nobody wants to play. Put a playable slice in front of a person early, and ask what games they love before you pick a genre.
+- "It doesn't explain itself" is a defect, not polish. A menu, a rules page and a guided first level should be in the first spec.

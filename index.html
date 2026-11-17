@@ -5,56 +5,69 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Firewall Security Faceoff</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="game/game.css">
+  <link rel="stylesheet" href="strategy/strategy.css">
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three.module.js", "three/addons/controls/OrbitControls.js": "./vendor/OrbitControls.js" } }
+  </script>
 </head>
 <body>
-  <div id="game" class="phase-title">
-    <header id="hud" aria-label="Game status">
-      <span class="hud-logo">FIREWALL FACEOFF</span>
-      <span id="hud-hp" class="hud-meter" role="img"></span>
-      <span id="hud-cust" class="hud-meter" role="img"></span>
-      <span class="hud-score"><span class="hud-small">SCORE</span><strong id="hud-score">0</strong></span>
-      <span id="hud-combo" class="hud-combo"></span>
-      <span class="hud-wave"><span id="wave-label" class="hud-small">WAVE</span><span class="wave-track"><span id="wave-fill"></span></span></span>
-      <span class="hud-spacer"></span>
-      <button type="button" id="btn-pause" class="hud-btn" aria-pressed="false">PAUSE</button>
-      <button type="button" id="btn-restart" class="hud-btn">RETRY</button>
-      <button type="button" id="btn-levels" class="hud-btn">LEVELS</button>
-      <button type="button" id="btn-log" class="hud-btn" aria-expanded="false">LOG</button>
-      <button type="button" id="btn-sound" class="hud-btn" aria-pressed="true">SOUND ON</button>
+  <div id="app">
+    <header id="topbar" aria-label="Game status">
+      <span class="brand">Firewall Faceoff</span>
+      <span id="tb-level" class="tb-item"></span>
+      <span id="tb-turn" class="tb-item"></span>
+      <span id="tb-hp" class="tb-item meter" role="img"></span>
+      <span id="tb-trust" class="tb-item meter" role="img"></span>
+      <span id="tb-score" class="tb-item"></span>
+      <span id="tb-rival" class="tb-item"></span>
+      <span class="tb-space"></span>
+      <button type="button" id="btn-help" class="tb-btn">How to play</button>
+      <button type="button" id="btn-menu" class="tb-btn">Menu</button>
     </header>
 
-    <main id="stage">
-      <canvas id="field" aria-hidden="true"></canvas>
-      <p id="mission" class="mission-strip"></p>
-      <div id="wall-zone">
-        <ol id="wall" aria-label="Your wall. The top gate is checked first."></ol>
-      </div>
-      <p id="coach" role="status" aria-live="polite"></p>
-      <div id="banner" aria-hidden="true"></div>
+    <main id="map">
+      <div id="labels" aria-hidden="true"></div>
+      <section id="left" aria-label="Requests">
+        <h2>Requests</h2>
+        <ul id="requests"></ul>
+      </section>
+      <section id="advisor" aria-live="polite" aria-label="Advisor">
+        <h2 id="advisor-title">Advisor</h2>
+        <p id="advisor-text"></p>
+        <div id="advisor-actions"></div>
+      </section>
+      <p id="map-help">Drag to turn the map · scroll to zoom · right-drag to slide · ■ wanted ▲ attack ● not needed</p>
     </main>
 
-    <footer id="tray-zone">
-      <ul id="tray" aria-label="Spare gates"></ul>
-      <p class="tray-help"><span class="key key-good">&#9632; WANTED</span> <span class="key key-bad">&#9650; ATTACK</span> <span class="key key-stray">&#9679; NOT NEEDED</span> <span class="tray-how">DRAG OR CLICK A GATE TO ADD IT &middot; DRAG IT OFF TO REMOVE &middot; P PAUSES</span></p>
-    </footer>
-
-    <aside id="log-panel" hidden aria-label="Text log of every packet">
-      <h2>PACKET LOG</h2>
+    <aside id="side" aria-label="Your gatehouse">
+      <h2>Your gatehouse <small>checked top to bottom; the first match decides</small></h2>
+      <ol id="wall"></ol>
+      <p id="wall-foot">Anything no gate allows is turned away.</p>
+      <h2>Available gates <small>click one to add it</small></h2>
+      <ul id="spare"></ul>
+      <div id="turn-box">
+        <p id="actions" role="status"></p>
+        <button type="button" id="end-turn">End turn</button>
+      </div>
+      <h2>What just happened</h2>
       <ol id="log"></ol>
+      <details id="road">
+        <summary>On the road, as a list</summary>
+        <ul id="approach"></ul>
+      </details>
     </aside>
 
-    <div id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" hidden>
-      <div class="modal-card">
-        <h1 id="modal-title"></h1>
-        <div id="modal-body"></div>
-        <div id="modal-actions" class="modal-actions"></div>
+    <div id="screen" hidden>
+      <div id="screen-card" role="dialog" aria-modal="true" aria-labelledby="screen-title">
+        <h1 id="screen-title"></h1>
+        <div id="screen-body"></div>
+        <div id="screen-actions"></div>
       </div>
     </div>
-
+    <div id="toast" role="status" aria-live="polite"></div>
     <div id="live" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
   </div>
   <noscript>This game needs JavaScript. A text edition is at classic.html.</noscript>
-  <script type="module" src="game/arcade.js"></script>
+  <script type="module" src="strategy/main.js"></script>
 </body>
 </html>

@@ -653,7 +653,7 @@ function showLevels() {
     ],
     actions: [
       inPlay ? { label: 'BACK TO THE GAME', onClick: () => {} } : null,
-      { label: 'TEXT EDITION', href: 'classic.html' },
+      { label: 'MAIN GAME', href: 'index.html' },
     ],
   });
 }

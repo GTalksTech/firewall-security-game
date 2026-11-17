@@ -493,7 +493,13 @@
                 "tone": "bad",
                 "text": "Let customers in, keep attackers out"
               }
-            ]
+            ],
+            "briefing": {
+              "story": "You run the gatehouse for a small online shop. Its three servers face the Internet.",
+              "goal": "Let in exactly what the business asks for. The wall turns everything else away on its own.",
+              "tool": "Gates. Each one allows or blocks one kind of traffic. They are checked from the top down, and the first one that matches decides."
+            },
+            "hostile": []
           },
           "topology": {
             "zones": [
@@ -1835,6 +1841,15 @@
                 "tone": "bad",
                 "text": "Locked traffic needs DECRYPT before SCAN can see inside"
               }
+            ],
+            "briefing": {
+              "story": "Now you guard the office. Staff and contractors go out to the Internet through your gatehouse.",
+              "goal": "Let them reach what they need, and stop the tunnels, malware and bad lookups that ride along.",
+              "tool": "APP gates check what traffic really is, not just its port. Switches under a gate (SCAN, DECRYPT, DNS FILTER) inspect what it lets through."
+            },
+            "hostile": [
+              "198.51.100.66",
+              "198.51.100.99"
             ]
           }
         }
@@ -2720,7 +2735,13 @@
                 "tone": "bad",
                 "text": "Even trusted traffic can carry an exploit. Scan it."
               }
-            ]
+            ],
+            "briefing": {
+              "story": "The data center. Staff, database admins and a public web server all want to reach your database and app server.",
+              "goal": "Each may reach only what their job needs, so one break-in cannot spread to the rest.",
+              "tool": "WHO gates name a group or a single machine. SCAN catches an exploit hidden inside traffic you trust."
+            },
+            "hostile": []
           }
         }
       }

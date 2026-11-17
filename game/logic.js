@@ -34,6 +34,8 @@ export function arcadeOf(c) {
     friend: a.friend || 'CUSTOMERS',
     hp: a.hp || 'SERVERS',
     intro: a.intro || [],
+    briefing: a.briefing || null,
+    hostile: a.hostile || [],
   };
 }
 
