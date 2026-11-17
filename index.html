@@ -36,11 +36,12 @@
         <p id="advisor-text"></p>
         <div id="advisor-actions"></div>
       </section>
-      <p id="map-help">Drag to turn the map · scroll to zoom · right-drag to slide · ■ wanted ▲ attack ● not needed</p>
+      <p id="map-help">Drag to turn the map · scroll to zoom · right-drag to slide · click a banner to trace it · ■ wanted ▲ attack ● not needed</p>
     </main>
 
     <aside id="side" aria-label="Your gatehouse">
       <h2>Your gatehouse <small>checked top to bottom; the first match decides</small></h2>
+      <p id="trace-note" hidden></p>
       <ol id="wall"></ol>
       <p id="wall-foot">Anything no gate allows is turned away.</p>
       <h2>Available gates <small>click one to add it</small></h2>
@@ -48,6 +49,7 @@
       <div id="turn-box">
         <p id="actions" role="status"></p>
         <button type="button" id="end-turn">End turn</button>
+        <button type="button" id="undo">Undo last change</button>
       </div>
       <h2>What just happened</h2>
       <ol id="log"></ol>

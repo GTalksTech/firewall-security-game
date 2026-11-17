@@ -436,3 +436,30 @@ After loop 1 the land looked good but everything standing on it was still a clus
 | Screenshots at 1440x900: Level 2 at rest, Level 3 mid-animation | Districts and units now read as different things. In the first screenshot a unit on the left edge was cut off; camera moved back and left. |
 
 Not checked: frame rate on a real graphics card (the automated browser renders in software), and the burst effects were seen in one still frame only.
+
+### Loop 3: seeing why, and fixing mistakes
+
+After loop 2 the game looked right but still left three questions unanswered for a player: why did this unit get that answer, what did my last change do, and how do I take back a misclick. Changed:
+
+- **Trace.** Click any banner (or its row in the list) to trace that unit. Its route is drawn on the map in dots, with a cross at the gatehouse if it will be stopped, and every gate in the side panel is labelled "no match, keep going", "MATCH: this gate decides", or "never reached". The labels come from `traceFlow` in `strategy/turns.js`, which is tested against the rule engine on four different gatehouses per level.
+- **Change feedback.** After each change a short message says what it did to the units on the road ("443 → WEB-1: now GETS IN"), or that it changed nothing.
+- **Undo.** "Undo last change" takes back a change made this turn and returns the action.
+- **Quieter banners.** A unit that is being handled correctly shows a one-line banner; only units with a problem, or the one being traced, show the full banner. This also fixed most of the crowding.
+- **Better advice for one case.** When an attack shares a port with wanted traffic, the advisor used to say "swap the gate for a narrower one", which is wrong: the fix is a blocking gate above it. It now names that gate, in the same words the side panel uses, and says where to put it.
+
+| Check | Result |
+|---|---|
+| `node tests/run-node.mjs` | Pass: 167 tests (3 new, for the trace) |
+| All three levels won with three stars through the real interface | Pass: scores 187, 193, 202; no console errors; no requests to other hosts |
+| Level 1: add a gate, add another, undo | Pass: the second gate is gone and the action is back |
+| Level 1 turn 8: click a red banner | Pass: route and cross drawn, gates labelled, note reads "no gate matches, so it is turned away" |
+| Level 1 with the known-bad address approaching | Pass: advisor names the blocking gate and says to move it above gate 1 |
+
+Found while checking: after an update the browser can keep an old copy of a script and fail to start ("does not provide an export named…"). The local Python server sends no cache headers. A hard refresh fixes it; anyone pulling a new version should do one.
+
+### Still not verified after these three loops
+
+- No person has played it. The look was judged from screenshots by the builder, not by a player or a designer.
+- Frame rate on real hardware. The automated browser draws in software.
+- Sound, touch, a screen reader, other browsers, a machine without WebGL.
+- Phone-size screens remain unsuitable for this version.

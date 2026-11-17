@@ -439,6 +439,38 @@ export function createBoard(container, labelLayer) {
       tweens.push({ obj, from: obj.position.clone(), to: to.clone(), t: 0, dur, hop: opts.hop || 0, resolve, onDone: opts.onDone });
     });
   }
+  // The route of the unit being traced: dots along the road, a cross where it is stopped.
+  let pathGroup = new THREE.Group();
+  scene.add(pathGroup);
+  function drawPath(picked, travel) {
+    scene.remove(pathGroup);
+    pathGroup = new THREE.Group();
+    scene.add(pathGroup);
+    if (!picked) return;
+    const { u, b } = picked;
+    const e = ends(u);
+    const gatePos = new THREE.Vector3(gate.x, 0, gate.z);
+    const color = b.bad ? 0xd0342c : 0x1f9d55;
+    const legs = [[restPos(u, travel), e.front], [e.front, gatePos]];
+    if (b.through) legs.push([gatePos, e.goal]);
+    for (const [from, to] of legs) {
+      const n = Math.max(1, Math.round(from.distanceTo(to) / 0.45));
+      for (let i = 1; i <= n; i += 1) {
+        const dot = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.03, 10), new THREE.MeshBasicMaterial({ color }));
+        dot.position.lerpVectors(from, to, i / n);
+        dot.position.y = GROUND + 0.04;
+        pathGroup.add(dot);
+      }
+    }
+    if (!b.through) {
+      for (const r of [Math.PI / 4, -Math.PI / 4]) {
+        const bar = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.06, 0.16), new THREE.MeshBasicMaterial({ color }));
+        bar.rotation.y = r;
+        bar.position.set(e.front.x, GROUND + 0.12, e.front.z);
+        pathGroup.add(bar);
+      }
+    }
+  }
   let instant = false;
   const sparks = [];
   const HOME = new THREE.Vector3(-1.3, 18, 14.4);
@@ -472,6 +504,7 @@ export function createBoard(container, labelLayer) {
   // Puts every unit where it should be this turn and updates its banner.
   function sync(units, travel, bannerFor) {
     const seen = new Set();
+    let picked = null;
     for (const u of units) {
       seen.add(u.id);
       let m = unitMeshes.get(u.id);
@@ -491,13 +524,15 @@ export function createBoard(container, labelLayer) {
       m.group.lookAt(e.front.x, m.group.position.y, e.front.z);
       m.group.rotateY(-Math.PI / 2);
       const b = bannerFor(u);
-      const node = label(`u:${u.id}`, `lbl-unit kind-${u.kind}${b.bad ? ' bad' : ' ok'}${b.selected ? ' selected' : ''}`);
+      const node = label(`u:${u.id}`, `lbl-unit kind-${u.kind}${b.bad ? ' bad' : ' ok'}${b.selected ? ' selected' : ''}${!b.bad && !b.selected ? ' compact' : ''}`);
+      if (b.selected) picked = { u, b };
       node.innerHTML = '';
       const top = document.createElement('b'); top.textContent = `${b.shape} ${b.title}`; node.append(top);
       if (b.who) { const w = document.createElement('i'); w.textContent = b.who; node.append(w); }
       const f = document.createElement('span'); f.textContent = `${b.bad ? '✕' : '✓'} ${b.forecast}`; node.append(f);
       node.dataset.unit = String(u.id);
     }
+    drawPath(picked, travel);
     for (const [id, m] of unitMeshes) {
       if (!seen.has(id) && !m.leaving) { scene.remove(m.group); unitMeshes.delete(id); const n = labels.get(`u:${id}`); if (n) { n.remove(); labels.delete(`u:${id}`); } }
     }

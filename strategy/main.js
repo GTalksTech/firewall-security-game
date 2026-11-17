@@ -11,7 +11,7 @@ import {
   arcadeOf, insideHosts, isOutbound, nameOf, flowLabel, flowText, ruleParts, ruleText,
   leakHint, leakFix, starsFor, candidatesFor, CONTROL_SHORT, CONTROL_HELP,
 } from '../game/logic.js';
-import { RULES, newGame, spawnTurn, endTurn, forecast, activeRequests } from './turns.js';
+import { RULES, newGame, spawnTurn, endTurn, forecast, activeRequests, traceFlow } from './turns.js';
 import { createBoard } from './board.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -36,7 +36,7 @@ function el(tag, attrs = {}, ...children) {
 
 const state = {
   levels: [], index: 0, level: null, c: null, cfg: null, game: null,
-  busy: false, stats: {}, selected: null, log: [],
+  busy: false, stats: {}, selected: null, log: [], undo: [],
   guide: { on: false, i: 0, shown: false },
   progress: { stars: {}, best: {} }, sound: true, board: null,
 };
@@ -112,6 +112,13 @@ function gateText(rule) {
     el('span', { class: 'what' }, what), ' → ', el('span', { class: 'where' }, where),
   ];
 }
+// The same words a gate shows in the side panel, as plain text.
+function gatePlain(rule) {
+  const p = ruleParts(state.c, rule);
+  const what = p.kind === 'app' ? `app ${p.what}` : p.kind === 'port' ? `port ${p.what}` : 'anything';
+  const where = p.where === 'ANY' ? 'anywhere' : p.where === 'OUT' ? 'going out' : p.where;
+  return `${rule.action === 'allow' ? 'ALLOW' : 'BLOCK'} ${p.who ? `${p.who} ` : ''}${what} → ${where}`;
+}
 const wallIndex = (ruleId) => state.game.wall.findIndex((e) => e.ruleId === ruleId);
 const canAct = () => state.game && !state.game.over && !state.busy;
 
@@ -122,10 +129,33 @@ function spend(what) {
     announce('No changes left this turn. Press End turn.');
     return false;
   }
+  state.undo.push({ wall: state.game.wall.map((e) => ({ ruleId: e.ruleId, controls: { ...e.controls } })), stats: JSON.stringify(state.stats) });
+  state.before = new Map(state.game.units.map((u) => [u.id, fc(u).text]));
   state.game.actions -= 1;
   SFX.click();
   announce(`${what} ${state.game.actions} changes left this turn.`);
   return true;
+}
+// Says what a change did to the units on the road.
+function reportChange() {
+  if (!state.before) return;
+  const changed = state.game.units.filter((u) => state.before.get(u.id) !== fc(u).text);
+  state.before = null;
+  if (changed.length === 0) { toast('No change to anything on the road.'); return; }
+  const first = changed[0];
+  const f = fc(first);
+  toast(`${unitName(first)}: now ${f.text}${changed.length > 1 ? `, and ${changed.length - 1} more changed` : ''}`);
+  announce(changed.map((u) => `${unitName(u)} now ${fc(u).text}.`).join(' '));
+}
+function undoChange() {
+  if (!canAct() || state.undo.length === 0) return;
+  const last = state.undo.pop();
+  state.game.wall = last.wall;
+  state.stats = JSON.parse(last.stats);
+  state.game.actions += 1;
+  SFX.click();
+  announce('Change undone.');
+  render({ focus: '#undo, #end-turn' });
 }
 function addGate(ruleId) {
   if (wallIndex(ruleId) !== -1) return;
@@ -180,11 +210,22 @@ function renderGates() {
   const { c, game } = state;
   const locked = !canAct();
   const wall = $('#wall');
+  const picked = game.units.find((u) => u.id === state.selected);
+  const trace = picked ? traceFlow(c, game.wall, picked.flow, evaluateFlow) : null;
+  const note = $('#trace-note');
+  if (picked) {
+    const f = fc(picked);
+    note.hidden = false;
+    note.replaceChildren(el('strong', {}, `Tracing ${unitName(picked)}`), ` — ${f.gate ? `gate ${f.gate} decides` : 'no gate matches, so it is turned away'}: ${f.text}. `,
+      el('button', { type: 'button', class: 'link', onclick: () => { state.selected = null; render(); } }, 'Stop tracing'));
+  } else { note.hidden = true; }
   wall.replaceChildren(...game.wall.map((entry, i) => {
     const rule = c.rules[entry.ruleId];
     const st = state.stats[entry.ruleId] || {};
     const offered = Object.keys(rule.controls || {});
-    return el('li', { class: `gate ${rule.action === 'allow' ? 'allow' : 'block'}`, dataset: { rule: entry.ruleId }, title: rule.label },
+    const tr = trace ? trace[i] : null;
+    return el('li', { class: `gate ${rule.action === 'allow' ? 'allow' : 'block'}${tr ? ` trace-${tr.result}` : ''}`, dataset: { rule: entry.ruleId }, title: rule.label },
+      tr ? el('span', { class: 'trace' }, tr.result === 'decides' ? `◀ MATCH: this gate decides (${rule.action === 'allow' ? 'lets it through' : 'blocks it'})` : tr.result === 'no-match' ? 'no match, keep going ↓' : 'never reached') : null,
       el('span', { class: 'num' }, String(i + 1)),
       el('span', { class: 'txt' }, gateText(rule)),
       el('span', { class: 'btns' },
@@ -224,6 +265,7 @@ function renderGates() {
   $('#actions').replaceChildren(
     el('strong', {}, `${game.actions} of ${RULES.ACTIONS} changes left `),
     el('span', { 'aria-hidden': 'true' }, Array.from({ length: RULES.ACTIONS }, (_, i) => el('span', { class: `dot${i < used ? ' used' : ''}` }, '●'))));
+  $('#undo').disabled = locked || state.undo.length === 0;
   $('#end-turn').disabled = locked || guideBlocks();
   $('#end-turn').textContent = game.turn >= game.plan.lastTurn ? 'Final turn' : 'End turn';
 }
@@ -314,7 +356,16 @@ function advice() {
     const f = fc(u);
     if (f.outcome !== 'breach') continue;
     const rule = c.rules[game.wall[f.verdict.matchedIndex].ruleId];
-    return { tone: 'alarm', text: `An attack (${unitName(u)}) arrives ${turnsWord(game.plan.travel - u.step)} and will get in. ${sentence(leakHint(c, u.flow, f.verdict, rule, f.gate))}` };
+    const lead = `An attack (${unitName(u)}) arrives ${turnsWord(game.plan.travel - u.step)} and will get in through gate ${f.gate}.`;
+    // A blocking gate made for this attack beats swapping out a gate that wanted traffic needs.
+    const blocker = Object.keys(c.rules).find((id) => c.rules[id].action === 'deny' && evaluateFlow([{ ruleId: id, controls: {} }], c.rules, u.flow).verdict === 'denied-by-rule');
+    if (blocker && leakFix(u.flow, f.verdict, rule).length === 0) {
+      const at = wallIndex(blocker);
+      return { tone: 'alarm', text: at === -1
+        ? `${lead} Add the gate "${gatePlain(c.rules[blocker])}" and move it above gate ${f.gate}: the first match decides.`
+        : `${lead} Your blocking gate ${at + 1} is below it and never gets a say. Move it above gate ${f.gate}.` };
+    }
+    return { tone: 'alarm', text: `${lead} ${sentence(leakHint(c, u.flow, f.verdict, rule, f.gate))}` };
   }
   for (const u of units.filter((x) => x.kind === 'wanted')) {
     const f = fc(u);
@@ -376,7 +427,7 @@ function syncBoard() {
   const { game } = state;
   state.board.sync(boardUnits(), game.plan.travel, (u) => {
     const f = fc(u);
-    return { shape: KIND_SHAPE[u.kind], title: unitTitle(u), who: unitWho(u), forecast: f.text, bad: f.bad, eta: turnsWord(game.plan.travel - u.step), selected: state.selected === u.id };
+    return { through: f.verdict.verdict === 'allowed' || f.verdict.verdict === 'stopped-by-control', shape: KIND_SHAPE[u.kind], title: unitTitle(u), who: unitWho(u), forecast: f.text, bad: f.bad, eta: turnsWord(game.plan.travel - u.step), selected: state.selected === u.id };
   });
 }
 $('#labels').addEventListener('click', (event) => {
@@ -395,6 +446,7 @@ function render(opts = {}) {
   renderLog();
   renderAdvisor();
   syncBoard();
+  reportChange();
   if (opts.focus) { const t = $(opts.focus); if (t && !t.disabled) t.focus(); }
 }
 
@@ -426,6 +478,8 @@ async function onEndTurn() {
   const guided = state.guide.on;
   state.busy = true;
   state.selected = null;
+  state.undo = [];
+  state.before = null;
   SFX.turn();
   logLine(`Turn ${game.turn}`, 'head');
   if (guided) { game.hp += 100; game.trust += 100; }
@@ -463,6 +517,7 @@ async function onEndTurn() {
   render({ focus: '#end-turn' });
 }
 $('#end-turn').addEventListener('click', onEndTurn);
+$('#undo').addEventListener('click', undoChange);
 
 // ---------- screens ----------
 function showScreen({ title, body, actions, solid }) {
@@ -522,7 +577,7 @@ function showHowTo(back) {
         el('li', {}, el('span', { class: 'kw stray' }, '● Drifter'), ': traffic nobody asked for. Keep it out too.')),
         el('p', {}, 'Each one shows its port, where it is going, and what your gates will do with it.')),
       card('Your gatehouse', el('p', {}, 'Each gate allows or blocks one kind of traffic. Traffic is checked against your gates from the top down, and the first gate that matches decides. If no gate matches, it is turned away.')),
-      card('Your turn', el('p', {}, `You may make ${RULES.ACTIONS} changes a turn: add a gate, remove one, move one up or down, or flip a switch. Then press End turn. Everything moves one step; it takes ${RULES.TRAVEL} turns to reach the gatehouse, so you can see trouble coming.`)),
+      card('Your turn', el('p', {}, `You may make ${RULES.ACTIONS} changes a turn: add a gate, remove one, move one up or down, or flip a switch. Undo gives a change back. Click any banner on the map to trace it through your gates. Then press End turn. Everything moves one step; it takes ${RULES.TRAVEL} turns to reach the gatehouse, so you can see trouble coming.`)),
       card('Winning and losing', el('p', {}, `Each attack that gets in costs a heart. Each piece of wanted traffic turned away costs trust. Lose all ${RULES.MAX_HP} of either and the level is lost. Reach the last turn to win.`), el('p', {}, 'Three stars: nothing wrongly let in or turned away, and no gate wider than it needs to be.')),
       card('Switches (Levels 2 and 3)', el('p', {}, 'Some gates have switches. SCAN catches malware and exploits in traffic the gate lets through. Encrypted traffic also needs DECRYPT, or SCAN cannot see inside. DNS FILTER stops lookups of bad domains.')))],
     actions: [btn('Back', back, false)],
@@ -606,6 +661,7 @@ function selectLevel(i) {
   state.game = newGame(state.c);
   spawnTurn(state.game);
   state.stats = {};
+  state.undo = [];
   state.log = [];
   state.selected = null;
   state.busy = false;

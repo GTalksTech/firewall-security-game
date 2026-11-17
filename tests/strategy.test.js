@@ -3,7 +3,7 @@
 import { test, assert, assertEqual } from './harness.js';
 import { evaluateFlow, evaluateSubmission } from '../engine/rules.js';
 import { starsFor } from '../game/logic.js';
-import { RULES, buildTurnPlan, newGame, spawnTurn, endTurn, forecast, activeRequests } from '../strategy/turns.js';
+import { RULES, buildTurnPlan, newGame, spawnTurn, endTurn, forecast, activeRequests, traceFlow } from '../strategy/turns.js';
 
 // Plays a whole level. `wallFor(game)` returns the wall to use from this turn on, or null to keep it.
 function playLevel(c, wallFor) {
@@ -100,6 +100,26 @@ export function register(content) {
         }
       }
       assert(checked > 0);
+    });
+  }
+
+  for (const level of content.levels) {
+    const c = level.challenges.expert;
+    test(`strategy ${level.id}: a trace names the same deciding gate as the engine`, () => {
+      const walls = [c.referenceSolution, c.rival.ruleBase, Object.keys(c.rules).map((ruleId) => ({ ruleId, controls: {} })), []];
+      for (const wall of walls) {
+        for (const flow of [...c.requiredFlows, ...c.attackSteps, ...c.probes]) {
+          const v = evaluateFlow(wall, c.rules, flow);
+          const trace = traceFlow(c, wall, flow, evaluateFlow);
+          assertEqual(trace.length, wall.length);
+          const decider = trace.find((s) => s.result === 'decides');
+          assertEqual(decider ? decider.gate - 1 : null, v.matchedIndex, flow.id);
+          trace.forEach((s, i) => {
+            const want = v.matchedIndex === null || i < v.matchedIndex ? 'no-match' : i === v.matchedIndex ? 'decides' : 'not-reached';
+            assertEqual(s.result, want, `${flow.id} gate ${i + 1}`);
+          });
+        }
+      }
     });
   }
 

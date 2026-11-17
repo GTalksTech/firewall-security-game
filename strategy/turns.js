@@ -64,6 +64,19 @@ export function forecast(c, wall, spawn, judge) {
   return { verdict, outcome, gate, text, bad: isBad(outcome) };
 }
 
+// How the gatehouse reaches its answer for one flow: each gate from the top is either
+// passed over (no match), decides (first match), or is never reached.
+export function traceFlow(c, wall, flow, judge) {
+  let decided = false;
+  return wall.map((entry, i) => {
+    if (decided) return { gate: i + 1, ruleId: entry.ruleId, result: 'not-reached' };
+    const alone = judge([entry], c.rules, flow);
+    if (alone.verdict === 'denied-implicit') return { gate: i + 1, ruleId: entry.ruleId, result: 'no-match' };
+    decided = true;
+    return { gate: i + 1, ruleId: entry.ruleId, result: 'decides', verdict: alone.verdict };
+  });
+}
+
 // A fresh game state for a level.
 export function newGame(c) {
   return {
