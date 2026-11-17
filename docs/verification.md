@@ -270,3 +270,34 @@ wave in an inset. Level 1 has three waves, one per attack step.
 
 Not in the arcade edition yet: Levels 2 and 3, the Expert tier, security-control switches on
 tiles, hints, and a per-tier summary. They remain in the text edition.
+
+## Arcade edition, second redesign: real time
+
+Built on 2026-11-17 after the owner said the first arcade slice was better but still not fun or
+interactive enough, and too wordy. `game/arcade.js` replaces `game/game.js`.
+
+What changed: there is no build-then-watch split. Traffic flows continuously and the wall can
+be edited at any moment. The level is the richer Level 1 challenge played from a bare wall,
+with business orders arriving mid-run (partner SSH, then mail in and out) and five attack
+waves, one of which only a blocklist gate placed above the web gate can stop. Five server
+hearts, a customer-patience meter, a combo multiplier, and one to three stars. Tiles read
+"✓ 443 → WEB-1". The briefing dialog is gone; one-line prompts appear when something goes
+wrong. Pause is always available and the wall can still be edited while paused.
+
+This edition does not follow the current specification's scoring or its submit-then-test flow.
+The verdict for every packet still comes from the rule engine, and the three-star check uses
+the engine's result for the final wall. The specification and constitution have not been
+rewritten for it yet; that is pending the owner's decision on whether this direction is right.
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| `node tests/run-node.mjs` | pass | 94 of 94 (engine and text edition; the arcade layer has no automated tests) |
+| Perfect run, keyboard only | pass | Gates placed as each order arrived, blocklist moved to the top in wave 3: 3 of 3 stars, 5 hearts, rival down at 1:03 |
+| Breach | pass | Only the "22 to any" style wide gate on the wall: five hits, "BREACHED" after 0:24 |
+| Outage | pass | Deny-all above the web gate: customers turned away, "OUTAGE" after 0:16 |
+| Live editing during traffic | pass | Wide gate swapped for the narrow one by mouse drag mid-wave; leaks stopped and the leak badge cleared |
+| Pause, then edit | pass | P paused the game; a gate was removed while paused |
+| Mid-run orders | pass | Orders strip grew from one to three orders at waves 1 and 2 |
+| Console errors | pass | None |
+| Reduced motion | not run for this version | The game is real time; the title screen says so and points to the text edition |
+| 360 px wide, touch drag, sound, screen reader, other browsers, a human player | not run for this version | |

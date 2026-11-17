@@ -127,6 +127,9 @@
             ]
           },
           "request": "Customers on the Internet must reach the web server WEB-1 (203.0.113.10) on HTTPS, TCP 443. Nothing else may enter the DMZ from the Internet. WEB-1 does not need to start any connections of its own.",
+          "arcade": {
+            "mission": "LET IN 443 TO WEB-1. BLOCK EVERYTHING ELSE."
+          },
           "topology": {
             "zones": [
               "Internet",
@@ -435,6 +438,18 @@
             ]
           },
           "request": "Customers reach WEB-1 (203.0.113.10) on TCP 443. Internet mail servers reach MAIL-1 (203.0.113.25) on TCP 25. Only the support partner (198.51.100.200) reaches JUMP-1 (203.0.113.20) on TCP 22. The known-bad address 198.51.100.66 reaches nothing. MAIL-1 may send mail out on TCP 25; no other DMZ host starts outbound connections.",
+          "arcade": {
+            "orders": [
+              { "wave": 0, "text": "LET CUSTOMERS REACH WEB-1 ON 443", "short": "443 TO WEB-1", "flows": ["F1"] },
+              { "wave": 1, "text": "NEW ORDER: THE PARTNER NEEDS SSH (22) TO JUMP-1", "short": "22 PARTNER TO JUMP-1", "flows": ["F3"] },
+              { "wave": 2, "text": "NEW ORDER: MAIL (25) IN TO MAIL-1 AND OUT FROM MAIL-1", "short": "25 MAIL IN AND OUT", "flows": ["F2", "F4"] }
+            ],
+            "tags": {
+              "198.51.100.200": "PARTNER",
+              "198.51.100.66": "BAD IP",
+              "198.51.100.30": "MAIL"
+            }
+          },
           "topology": {
             "zones": [
               "Internet",

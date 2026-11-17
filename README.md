@@ -2,7 +2,7 @@
 
 **Build a firewall rule base, then watch a penetration test hit your firewall and a rival's, one attack at a time.**
 
-Firewall Security Faceoff is a full-screen tower-defense game for network engineers and students. Your firewall is a wall and every rule is a gate on it. You drag rule tiles onto the wall, launch a wave, and watch customers and attackers fly in and get checked gate by gate from the top. The first gate that matches lets a packet through or bounces it, and anything that matches no gate drops into the implicit deny. Block three customers and you have an outage. Let one attacker reach a server and you are breached. A rival firewall faces the same waves in the corner. The firewall is vendor-neutral.
+Firewall Security Faceoff is a real-time tower-defense game for network engineers and students. Your firewall is a wall and every rule is a gate on it. Customers, attackers, and traffic nobody asked for fly at the wall without stopping, and each packet is checked from the top gate down: the first gate that matches lets it in or bounces it, and anything that matches no gate drops into the implicit deny. You drag gates on and off the wall while the traffic is flowing. New business orders arrive mid-run, each new attack punishes a lazy answer to the last order, and a rival firewall faces the same traffic in the corner. You have five server hearts, a customer-patience meter, a combo multiplier, and up to three stars to earn. The firewall is vendor-neutral.
 
 ![The arcade edition during a wave](assets/card.png)
 
