@@ -23,6 +23,7 @@ function play(c, wall) {
 }
 
 export function register(content) {
+  registerTry(content);
   test('arcade: all three levels have an arcade setup on the expert challenge', () => {
     assertEqual(content.levels.length, 3);
     for (const { id, c } of arcadeChallenges(content)) assert(c.arcade && c.arcade.orders.length > 0, `${id} has no arcade orders`);
@@ -146,4 +147,21 @@ export function register(content) {
     assertEqual(starsFor({ completed: true, exposures: ['P1'] }, { leaks: 0, blocked: 0, exposed: 1, hp: 5 }), 2);
     assertEqual(starsFor({ completed: false, exposures: [] }, { leaks: 0, blocked: 0, exposed: 0, hp: 5 }), 1);
   });
+}
+
+// Appended checks for the "TRY" markers.
+import { candidatesFor } from '../game/logic.js';
+export function registerTry(content) {
+  for (const level of content.levels) {
+    const c = level.challenges.expert;
+    test(`arcade ${level.id}: every wanted flow has a "TRY" gate, and the reference gate is among them`, () => {
+      const ref = new Set(c.referenceSolution.map((e) => e.ruleId));
+      for (const flow of c.requiredFlows) {
+        const ids = candidatesFor(c, flow, evaluateFlow);
+        assert(ids.length > 0, `${flow.id} has no candidate gate`);
+        assert(ids.some((id) => ref.has(id)), `${flow.id}: no reference gate among ${ids.join(',')}`);
+        assert(ids.every((id) => c.rules[id].action === 'allow'), 'a blocking gate is marked TRY');
+      }
+    });
+  }
 }

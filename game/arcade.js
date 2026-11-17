@@ -10,7 +10,7 @@ import { validateContent } from '../engine/content.js';
 import { explainVerdict } from '../engine/feedback.js';
 import {
   TUNING, CONTROL_SHORT, CONTROL_KEYS, arcadeOf, buildSchedule, insideHosts as hostsInside, isOutbound,
-  nameOf, flowLabel, flowText, ruleParts, ruleText, leakHint, starsFor,
+  nameOf, flowLabel, flowText, ruleParts, ruleText, leakHint, starsFor, candidatesFor,
 } from './logic.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -59,7 +59,7 @@ const state = {
   hp: MAX_HP, patience: MAX_PATIENCE, score: 0, combo: 0, bestCombo: 0, streak: 0,
   stats: {}, leaked: new Set(), exposed: new Set(), blockedAfterWarmup: 0,
   effects: [], shake: 0, hover: null, sound: true, best: 0, coachUntil: 0, lastHit: null,
-  orders: [], orderTime: {},
+  orders: [], orderTime: {}, tryThese: new Set(), missionH: 40,
 };
 
 // ---------- sound ----------
@@ -138,7 +138,7 @@ function tileEl(ruleId, inWall, index) {
     : inWall && st.expose ? el('span', { class: 'tile-badge badge-warn' }, 'TOO WIDE')
     : null;
   const tile = el('button', {
-    type: 'button', class: `tile tile-${rule.action}`, dataset: { rule: ruleId },
+    type: 'button', class: `tile tile-${rule.action}${!inWall && state.tryThese.has(ruleId) ? ' tile-try' : ''}`, dataset: { rule: ruleId },
     'aria-label': `${ruleText(c, rule)}. ${where} ${how}${st.leak ? ` Attackers got through it ${st.leak} times.` : ''}${st.block ? ` It blocked wanted traffic ${st.block} times.` : ''}`,
   },
     inWall ? el('span', { class: 'tile-num' }, String(index + 1)) : null,
@@ -148,6 +148,7 @@ function tileEl(ruleId, inWall, index) {
     el('span', { class: 'tile-port' }, parts.what),
     el('span', { class: 'tile-arrow' }, '→'),
     el('span', { class: 'tile-dst' }, parts.where),
+    !inWall && state.tryThese.has(ruleId) ? el('span', { class: 'tile-badge badge-try' }, 'TRY') : null,
     badge);
   const chips = offered.length === 0 ? null : el('span', { class: 'chips' }, offered.map((name) => {
     if (!inWall) return el('span', { class: 'chip ghost' }, CONTROL_SHORT[name]);
@@ -179,6 +180,7 @@ function addToWall(ruleId, at = state.wall.length) {
   if (!canEdit() || wallIndex(ruleId) !== -1) return;
   const rule = state.challenge.rules[ruleId];
   state.wall.splice(at, 0, { ruleId, controls: { ...(rule.controls || {}) } });
+  state.tryThese = new Set();
   delete state.stats[ruleId];
   SFX.place();
   renderTiles(ruleId);
@@ -444,6 +446,14 @@ function stat(ruleId, key) {
   const data = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset : {};
   renderTiles(data.rule || null, data.control || null);
 }
+// Marks the spare gates that could let this wanted traffic through.
+function suggest(flow) {
+  const ids = candidatesFor(state.challenge, flow, evaluateFlow).filter((id) => wallIndex(id) === -1);
+  const same = ids.length === state.tryThese.size && ids.every((id) => state.tryThese.has(id));
+  if (same) return;
+  state.tryThese = new Set(ids);
+  if (!drag) { const d = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset : {}; renderTiles(d.rule || null, d.control || null); }
+}
 function flashGate(index, cls) {
   const tile = wallEl.querySelectorAll('.tile')[index];
   if (!tile) return;
@@ -473,7 +483,8 @@ function onDecision(p, pos) {
       stat(p.snap.ruleId, 'block');
       if (state.patience <= 0) { lose('outage', p); return; }
     }
-    coach(m === null ? `NO GATE LETS ${what} THROUGH. ADD ONE.` : `GATE ${m + 1} IS BLOCKING ${what}. MOVE IT DOWN OR PULL IT OFF.`);
+    if (m === null) suggest(p.flow);
+    coach(m === null ? `NO GATE LETS ${what} IN. ADD ONE MARKED "TRY".` : `GATE ${m + 1} BLOCKS ${what}. MOVE IT DOWN OR PULL IT OFF.`);
   } else if (p.kind === 'attacker') {
     bumpCombo();
     gain(10, pos.x, pos.y);
@@ -660,7 +671,7 @@ function startRun() {
     packets: [], rival: { hp: RIVAL_HP, packets: [], downAt: null },
     hp: MAX_HP, patience: MAX_PATIENCE, score: 0, combo: 0, bestCombo: 0, streak: 0,
     stats: {}, leaked: new Set(), exposed: new Set(), blockedAfterWarmup: 0,
-    effects: [], shake: 0, lastHit: null, lastHint: null, coachUntil: 0,
+    effects: [], shake: 0, lastHit: null, lastHint: null, coachUntil: 0, tryThese: new Set(),
   });
   game.className = 'phase-play';
   $('#btn-pause').textContent = 'PAUSE';
@@ -669,7 +680,8 @@ function startRun() {
   renderTiles();
   updateHud();
   showMission();
-  coach(`${state.cfg.friend} ARE COMING. DRAG A GREEN GATE ONTO THE WALL.`, 8);
+  suggest(state.challenge.requiredFlows.find((f) => !state.orderTime[f.id]) || state.challenge.requiredFlows[0]);
+  coach(`${state.cfg.friend} ARE COMING. DRAG A GATE MARKED "TRY" ONTO THE WALL.`, 8);
   const first = trayEl.querySelector('.tile');
   if (first) first.focus();
   announce(`Level ${state.levelIndex + 1} has started. Wanted traffic is arriving. Add a gate to your wall.`);
@@ -678,7 +690,13 @@ function startRun() {
 function showMission() {
   const active = state.orders.filter((o) => o.shown || o.t === 0);
   $('#mission').replaceChildren(el('span', { class: 'mission-label' }, 'ORDERS'), ...active.map((o) => el('span', { class: 'order' }, o.short)), el('span', { class: 'order order-rest' }, 'BLOCK THE REST'));
+  measureMission();
 }
+function measureMission() {
+  state.missionH = $('#mission').offsetHeight || 40;
+  stage.style.setProperty('--mission-h', `${state.missionH}px`);
+}
+window.addEventListener('resize', measureMission);
 
 function togglePause() {
   if (state.phase !== 'play') return;
@@ -709,7 +727,7 @@ function lose(type, p) {
     title: type === 'breach' ? 'BREACHED' : 'OUTAGE', tone: 'bad',
     body: [
       el('p', { class: 'modal-lead' }, type === 'breach'
-        ? `${label(p.flow)} kept getting through gate ${n}.`
+        ? `Too many attacks got through gate ${n}.`
         : (n === null ? `No gate let ${label(p.flow)} through.` : `Gate ${n} kept turning ${label(p.flow)} away.`)),
       type === 'breach' && state.lastHint ? el('p', { class: 'modal-fix' }, state.lastHint) : null,
       el('p', { class: 'modal-small' }, `You lasted ${clockText(state.t)}. Score ${state.score}.`),
@@ -810,8 +828,15 @@ function drawPackets(list, g, labels) {
     if (labels && pos.alpha > 0.5) {
       const l = flowLabel(state.challenge, p.flow);
       const color = packetColor(p.kind);
-      text(l.payload ? `${l.main} +${l.payload}` : l.main, pos.x, pos.y + bob - 24, color, FONT_BIG, 'center');
-      if (l.who) text(l.who, pos.x, pos.y + bob - 40, color, FONT, 'center');
+      const main = l.payload ? `${l.main} +${l.payload}` : l.main;
+      ctx.font = FONT_BIG;
+      const half = Math.max(ctx.measureText(main).width, l.who ? ctx.measureText(l.who).width : 0) / 2 + 4;
+      const lx = Math.max(half, Math.min(g.w - half, pos.x));
+      const below = p.index % 2 === 1; // alternate above and below so neighbours do not stack
+      const ly = pos.y + bob + (below ? 26 : -24);
+      ctx.globalAlpha = 0.72; rect(lx - half, ly - (l.who && !below ? 25 : 9), half * 2, l.who ? 34 : 18, COLOR.bg); ctx.globalAlpha = 1;
+      text(main, lx, ly, color, FONT_BIG, 'center');
+      if (l.who) text(l.who, lx, ly + (below ? 16 : -16), color, FONT, 'center');
       if (l.locked) sprite(SPRITES.lock, pos.x + 22, pos.y + bob + 2, 2, COLOR.warn, pos.alpha);
     }
   }
@@ -863,8 +888,10 @@ function draw() {
   const c = state.challenge;
   if (!c) { ctx.restore(); return; }
 
-  text(c.topology.zones.filter((z) => !state.cfg.inside.includes(z)).join(' + ').toUpperCase(), 14, 54, COLOR.rival, FONT_HUGE);
-  text(state.cfg.inside.join(' + ').toUpperCase(), g.w - 14, 54, COLOR.you, FONT_HUGE, 'right');
+  const zoneY = state.missionH + 16;
+  const zoneFont = g.w < 520 ? FONT_BIG : FONT_HUGE;
+  text(c.topology.zones.filter((z) => !state.cfg.inside.includes(z)).join(' + ').toUpperCase(), 14, zoneY, COLOR.rival, zoneFont);
+  text(state.cfg.inside.join(' + ').toUpperCase(), g.w - 14, zoneY, COLOR.you, zoneFont, 'right');
 
   const spin = Math.floor(state.t * 8) % 4;
   for (let i = 0; i < 4; i += 1) rect(g.portalX - 16 + (i === spin ? 3 : 0), g.h * 0.2 + i * (g.h * 0.42 / 4), 9, g.h * 0.42 / 4 - 6, i === spin ? COLOR.rival : '#5a2440');
@@ -946,6 +973,7 @@ function step(dt) {
       showMission();
       banner('NEW ORDER', 'neutral');
       coach(o.text, 7);
+      suggest(state.challenge.requiredFlows.find((f) => f.id === o.flows[0]));
       logLine(o.text, 'head');
       announce(o.text);
     }

@@ -143,7 +143,7 @@ export function leakHint(c, flow, verdict, rule, n) {
   const payload = PAYLOAD[flow.carries];
   if (verdict.reasonCode === 'inspection-blind-encrypted') {
     return offers.includes('tlsDecryption')
-      ? `GATE ${n}: SCAN CANNOT SEE INSIDE LOCKED TRAFFIC. SWITCH ON DECRYPT.`
+      ? `GATE ${n}: SCAN IS BLIND TO LOCKED TRAFFIC. SWITCH ON DECRYPT.`
       : `GATE ${n} CANNOT DECRYPT. SWAP IT FOR A GATE THAT CAN.`;
   }
   if (payload && verdict.reasonCode === 'no-control') {
@@ -155,7 +155,13 @@ export function leakHint(c, flow, verdict, rule, n) {
       return `GATE ${n}: SWITCH ON SCAN${both ? ' AND DECRYPT' : ''} TO CATCH THE ${payload}.`;
     }
   }
-  return `GATE ${n} IS TOO WIDE: IT LETS ${flowText(c, flow)} THROUGH. SWAP IT FOR A NARROWER GATE.`;
+  return `GATE ${n} IS TOO WIDE: IT LETS ${flowText(c, flow)} IN. SWAP IT.`;
+}
+
+// Spare gates that would, on their own, let this wanted traffic through.
+// `judge` is engine/rules.js evaluateFlow, passed in so this file decides nothing.
+export function candidatesFor(c, flow, judge) {
+  return Object.keys(c.rules).filter((ruleId) => judge([{ ruleId, controls: {} }], c.rules, flow).verdict === 'allowed');
 }
 
 // Stars for a finished run. `result` is engine/rules.js evaluateSubmission of the final wall.

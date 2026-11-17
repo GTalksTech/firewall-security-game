@@ -301,3 +301,38 @@ rewritten for it yet; that is pending the owner's decision on whether this direc
 | Console errors | pass | None |
 | Reduced motion | not run for this version | The game is real time; the title screen says so and points to the text edition |
 | 360 px wide, touch drag, sound, screen reader, other browsers, a human player | not run for this version | |
+
+## Arcade edition: all three levels (2026-11-17)
+
+Levels 2 and 3 now play in the arcade edition, each built on its expert challenge.
+New: a level select with saved stars, scanner switches on gates (SCAN, DECRYPT,
+DNS FILTER), who and application labels on packets and gates, and `game/logic.js`,
+a screen-free module holding the timetable, labels, hints and star rules.
+
+| Check | Result |
+|---|---|
+| `node tests/run-node.mjs` | Pass: 133 tests (94 engine and content, 39 new arcade tests) |
+| Scripted perfect run of each level in an automated browser, by mouse click | Pass: three stars on all three (scores 7035, 7265, 9275), no console errors |
+| Stars saved and shown on the level select | Pass |
+| The new arcade tests found one real fault | Fixed: in Level 1 an outbound attack and a customer both read "443"; outbound packets now say who sent them and "OUT" |
+
+Not run: sound, touch, a screen reader, browsers other than the automated Chromium, a human playtest.
+
+## Arcade polish loops (2026-11-17)
+
+### Loop 1
+
+Problems seen in screenshots at 1280x800 and 390 wide, and what changed:
+
+- A first-time player could not tell which gate to start with. Spare gates that would let blocked wanted traffic in are now marked "TRY" (outlined, with a text badge). The marks come from the rule engine and are tested: every wanted flow has one, and the reference gate is always among them.
+- The HUD wrapped to two rows at 1280. It is now one row; RESTART is RETRY.
+- Packet labels ran off the left edge and stacked on each other. They are kept on screen, alternate above and below the packet, and sit on a dark backing.
+- Hints were long. "GATE 1 IS TOO WIDE: IT LETS STAFF 5432 DB IN. SWAP IT." replaces a two-sentence version; the breach screen no longer says the same thing twice.
+- The wall no longer sits under a wrapped order strip; its position follows the strip's height.
+
+| Check | Result |
+|---|---|
+| `node tests/run-node.mjs` | Pass: 136 tests |
+| All three levels won with three stars at 6x speed, automated browser | Pass, no console errors |
+| 390 wide: no sideways page scroll | Pass |
+| 390 wide: playable layout | **Fail**: the wall covers the playfield and part of the HUD is cut off. Carried into loop 2. |
