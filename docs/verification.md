@@ -418,3 +418,21 @@ Judged against a polished hex strategy game, the first build looked like a flat 
 | Screenshot at 1440x900, Level 1 turn 5 | Looks clearly better than before. First try was over-exposed and washed out; exposure lowered from 1.18 to 1.02. |
 
 Not done in this loop: districts and units are still the first-build models, and there are no effects when a unit is judged.
+
+### Loop 2: buildings, units, and what happens at the gate
+
+After loop 1 the land looked good but everything standing on it was still a cluster of identical boxes, units were hard to tell apart at a glance, and a unit being judged just slid and vanished. Changed:
+
+- Each district is now a distinct building chosen from the server's name: a domed hall (web), a post tower (mail), a keep (jump host), stacked drums (database), a workshop with a chimney (application server), a signpost obelisk (DNS), market stalls (web sites), and a dark spiked fort for hostile destinations. All have lit windows and a ring of small houses.
+- Units have clear outlines: a covered wagon pulled by an ox, a horned raider with spear and shield, a hooded drifter carrying a lantern. Each has its own idle motion (rolling, looking about, hovering). Idle motion is off with reduced motion.
+- When the gatehouse judges a unit there is now a ground ring and a burst of pieces: grey or red for blocked, cyan for scanned, orange with fire for a breach, gold when wanted traffic is served.
+- A pulsing ring on the ground marks the tile where units are judged.
+- The camera glides in from above when a level begins (skipped with reduced motion, cancelled by dragging) and sits a little further back so the left edge of the map is in view.
+
+| Check | Result |
+|---|---|
+| `node tests/run-node.mjs` | Pass: 164 tests |
+| All three levels won with three stars through the real interface | Pass: scores 187, 193, 202; no console errors; no requests to other hosts |
+| Screenshots at 1440x900: Level 2 at rest, Level 3 mid-animation | Districts and units now read as different things. In the first screenshot a unit on the left edge was cut off; camera moved back and left. |
+
+Not checked: frame rate on a real graphics card (the automated browser renders in software), and the burst effects were seen in one still frame only.

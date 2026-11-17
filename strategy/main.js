@@ -539,7 +539,7 @@ function showBriefing(i) {
       el('div', {}, el('h3', {}, i === 0 ? 'Your tool' : 'New in this level'), el('p', {}, b.tool || '')),
       el('div', {}, el('h3', {}, 'First request'), el('p', {}, sentence(state.game.plan.requests[0].text)))),
     i === 0 && state.guide.on ? el('p', {}, 'A guide will walk you through the first few turns. You cannot lose while it is on.') : null],
-    actions: [btn('Begin', () => { closeScreen(); render({ focus: '#guide-next, #spare button' }); }, false), btn('How to play', () => showHowTo(() => showBriefing(i)), true), btn('Home', showHome, true)],
+    actions: [btn('Begin', () => { closeScreen(); state.board.flyIn(); render({ focus: '#guide-next, #spare button' }); }, false), btn('How to play', () => showHowTo(() => showBriefing(i)), true), btn('Home', showHome, true)],
   });
 }
 function showMenu() {

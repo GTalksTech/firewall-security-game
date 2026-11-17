@@ -71,44 +71,119 @@ function box(w, h, d, color) { const m = new THREE.Mesh(new THREE.BoxGeometry(w,
 function cyl(rt, rb, h, seg, color) { const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), mat(color)); m.castShadow = true; m.receiveShadow = true; return m; }
 function at(mesh, x, y, z) { mesh.position.set(x, y, z); return mesh; }
 
+const glow = (color) => new THREE.MeshBasicMaterial({ color });
+function ball(r, color, basic) { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), basic ? glow(color) : mat(color)); m.castShadow = !basic; return m; }
+
+// Each kind of traffic has its own outline, so it reads without colour:
+// a wagon pulled by an ox, a horned raider with a spear, a hooded drifter with a lantern.
 function makeUnit(kind) {
-  const g = new THREE.Group();
+  const body = new THREE.Group();
   if (kind === 'wanted') {
-    g.add(at(box(0.62, 0.16, 0.36, 0x9a6b3c), 0, 0.2, 0));
-    const cover = cyl(0.2, 0.2, 0.56, 10, 0xf3ecd8); cover.rotation.z = Math.PI / 2; g.add(at(cover, 0, 0.34, 0));
-    for (const [x, z] of [[-0.2, 0.2], [0.2, 0.2], [-0.2, -0.2], [0.2, -0.2]]) { const w = cyl(0.11, 0.11, 0.05, 10, 0x4a3320); w.rotation.x = Math.PI / 2; g.add(at(w, x, 0.11, z)); }
-    g.add(at(cyl(0.015, 0.015, 0.5, 5, 0x4a3320), 0.26, 0.6, 0));
-    g.add(at(box(0.22, 0.14, 0.02, KIND_COLOR.wanted), 0.38, 0.78, 0));
+    body.add(at(box(0.6, 0.14, 0.36, 0x9a6b3c), -0.12, 0.2, 0));
+    const cover = cyl(0.21, 0.21, 0.54, 10, 0xf3ecd8); cover.rotation.z = Math.PI / 2; body.add(at(cover, -0.12, 0.36, 0));
+    for (const [x, z] of [[-0.32, 0.2], [0.08, 0.2], [-0.32, -0.2], [0.08, -0.2]]) { const w = cyl(0.12, 0.12, 0.05, 10, 0x4a3320); w.rotation.x = Math.PI / 2; body.add(at(w, x, 0.12, z)); }
+    body.add(at(box(0.34, 0.2, 0.2, 0xb08a5a), 0.44, 0.24, 0));          // the ox
+    body.add(at(box(0.14, 0.14, 0.16, 0xb08a5a), 0.66, 0.3, 0));
+    for (const z of [-0.07, 0.07]) body.add(at(cyl(0, 0.02, 0.1, 4, 0xf3ecd8), 0.68, 0.42, z));
+    for (const [x, z] of [[0.32, 0.07], [0.56, 0.07], [0.32, -0.07], [0.56, -0.07]]) body.add(at(box(0.05, 0.14, 0.05, 0x7d5f3c), x, 0.07, z));
+    body.add(at(cyl(0.014, 0.014, 0.56, 5, 0x4a3320), -0.36, 0.62, 0));
+    body.add(at(box(0.24, 0.15, 0.02, KIND_COLOR.wanted), -0.23, 0.82, 0));
   } else if (kind === 'attack') {
-    g.add(at(cyl(0.26, 0.3, 0.2, 6, 0x3a2b2b), 0, 0.1, 0));
-    g.add(at(cyl(0.0, 0.24, 0.5, 6, KIND_COLOR.attack), 0, 0.45, 0));
-    for (const a of [0, 2.1, 4.2]) { const s = cyl(0, 0.06, 0.3, 4, 0x2a1f1f); s.rotation.z = Math.PI / 2.6; s.rotation.y = a; g.add(at(s, Math.cos(a) * 0.24, 0.32, -Math.sin(a) * 0.24)); }
-    g.add(at(cyl(0.015, 0.015, 0.5, 5, 0x2a1f1f), -0.22, 0.6, 0));
-    g.add(at(box(0.22, 0.14, 0.02, 0x1d1414), -0.34, 0.78, 0));
+    body.add(at(cyl(0.1, 0.26, 0.5, 8, KIND_COLOR.attack), 0, 0.25, 0));   // cloak
+    body.add(at(cyl(0.12, 0.14, 0.16, 8, 0x2a1f1f), 0, 0.5, 0));           // shoulders
+    body.add(at(ball(0.12, 0x2a1f1f), 0, 0.66, 0));                         // helmet
+    for (const z of [-0.1, 0.1]) { const horn = cyl(0, 0.035, 0.2, 5, 0xe8e0c8); horn.rotation.x = z > 0 ? 0.7 : -0.7; body.add(at(horn, 0, 0.78, z * 1.3)); }
+    body.add(at(cyl(0.014, 0.014, 0.95, 5, 0x2a1f1f), 0.2, 0.5, 0.16));     // spear
+    body.add(at(cyl(0, 0.045, 0.14, 5, 0xd9d9d9), 0.2, 1.04, 0.16));
+    body.add(at(box(0.2, 0.12, 0.02, 0x1d1414), 0.09, 0.88, 0.16));
+    const shield = cyl(0.17, 0.17, 0.04, 10, 0x3a2b2b); shield.rotation.z = Math.PI / 2; body.add(at(shield, 0.16, 0.34, -0.12));
+    const boss = cyl(0.06, 0.06, 0.05, 8, KIND_COLOR.attack); boss.rotation.z = Math.PI / 2; body.add(at(boss, 0.18, 0.34, -0.12));
   } else {
-    g.add(at(cyl(0.2, 0.24, 0.12, 12, 0x5d5080), 0, 0.06, 0));
-    g.add(at(cyl(0.1, 0.18, 0.3, 12, KIND_COLOR.unneeded), 0, 0.27, 0));
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 8), mat(0xa99ad6)); head.castShadow = true; g.add(at(head, 0, 0.52, 0));
+    body.add(at(cyl(0.08, 0.24, 0.5, 10, KIND_COLOR.unneeded), 0, 0.25, 0));
+    body.add(at(ball(0.13, 0x5d5080), 0, 0.58, 0));
+    body.add(at(cyl(0, 0.16, 0.2, 10, 0x5d5080), 0, 0.74, 0));              // hood
+    body.add(at(cyl(0.012, 0.012, 0.5, 5, 0x4a3320), 0.2, 0.4, 0));
+    body.add(at(ball(0.06, 0xfff0a8, true), 0.2, 0.68, 0));                  // lantern
   }
+  const g = new THREE.Group();
+  g.add(body);
+  g.userData.body = body;
   return g;
 }
 
-function makeDistrict(hostile, seed) {
+// What a district looks like follows from its name. This is decoration only.
+function districtKind(name, hostile) {
+  if (hostile) return 'hostile';
+  if (/DB|DATA/.test(name)) return 'db';
+  if (/MAIL/.test(name)) return 'mail';
+  if (/JUMP/.test(name)) return 'jump';
+  if (/DNS/.test(name)) return 'dns';
+  if (/APP/.test(name)) return 'app';
+  if (/VENDOR|SITE/.test(name)) return 'site';
+  return 'web';
+}
+function house(g, x, z, w, h, wall, roof, lit = 0xffe9a0) {
+  g.add(at(box(w, h, w, wall), x, 0.08 + h / 2, z));
+  const r = cyl(0, w * 0.8, w * 0.62, 4, roof); r.rotation.y = Math.PI / 4; g.add(at(r, x, 0.08 + h + w * 0.31, z));
+  const win = new THREE.Mesh(new THREE.BoxGeometry(w * 0.3, h * 0.3, 0.02), glow(lit));
+  g.add(at(win, x, 0.08 + h * 0.55, z + w / 2 + 0.006));
+  const win2 = win.clone(); win2.rotation.y = Math.PI / 2; g.add(at(win2, x - w / 2 - 0.006, 0.08 + h * 0.55, z));
+}
+function makeDistrict(name, hostile, seed) {
+  const kind = districtKind(name, hostile);
   const g = new THREE.Group();
-  const wallColor = hostile ? 0x5a4a6e : 0xe9e2d0;
-  const roof = hostile ? 0x33284a : [0xc0563a, 0x3f7fb5, 0x4f9a6a][seed % 3];
-  g.add(at(cyl(0.92, 0.96, 0.08, 6, hostile ? 0x6f6680 : 0xcfc7b3), 0, 0.04, 0));
-  const spots = [[0, 0, 0.5, 0.62], [-0.42, 0.22, 0.3, 0.3], [0.4, -0.2, 0.32, 0.36], [0.1, 0.46, 0.26, 0.24], [-0.3, -0.4, 0.28, 0.28]];
-  spots.forEach(([x, z, w, h]) => {
-    g.add(at(box(w, h, w, wallColor), x, 0.08 + h / 2, z));
-    const r = cyl(0, w * 0.78, w * 0.6, 4, roof); r.rotation.y = Math.PI / 4; g.add(at(r, x, 0.08 + h + w * 0.3, z));
-  });
-  g.add(at(cyl(0.015, 0.015, 0.5, 5, 0x4a3320), 0, 1.3, 0));
-  g.add(at(box(0.26, 0.16, 0.02, hostile ? 0x7a2a8a : 0x2f6fb5), 0.14, 1.45, 0));
+  const wall = hostile ? 0x4d3f63 : 0xece5d3;
+  const roof = { web: 0xc0563a, mail: 0x3f7fb5, jump: 0x7a6a9c, db: 0x4f9a6a, app: 0xc98a2b, dns: 0x2f8f9a, site: 0xb5563f, hostile: 0x2a2038 }[kind];
+  const lit = hostile ? 0xd07bff : 0xffe9a0;
+  g.add(at(cyl(0.93, 0.97, 0.08, 6, hostile ? 0x625a72 : 0xd2cab5), 0, 0.04, 0));
+  for (const [x, z, w, h] of [[-0.5, 0.28, 0.26, 0.26], [0.48, -0.3, 0.28, 0.3], [0.2, 0.52, 0.24, 0.22], [-0.36, -0.46, 0.26, 0.26], [0.56, 0.24, 0.22, 0.2]]) house(g, x, z, w, h, wall, roof, lit);
+  if (kind === 'web') {                       // a domed hall
+    g.add(at(box(0.62, 0.5, 0.5, wall), 0, 0.33, 0));
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), mat(roof)); dome.castShadow = true; g.add(at(dome, 0, 0.58, 0));
+    for (const x of [-0.22, 0, 0.22]) g.add(at(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.24, 0.02), glow(lit)), x, 0.3, 0.256));
+    for (const x of [-0.32, 0.32]) g.add(at(cyl(0.04, 0.04, 0.5, 8, 0xf5f0e2), x, 0.33, 0.3));
+  } else if (kind === 'mail') {               // a post tower with a big flag
+    g.add(at(box(0.44, 0.44, 0.44, wall), 0, 0.3, 0));
+    g.add(at(cyl(0.16, 0.18, 0.7, 8, wall), 0, 0.87, 0));
+    g.add(at(cyl(0, 0.24, 0.3, 8, roof), 0, 1.37, 0));
+    g.add(at(new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.12, 0.02), glow(lit)), 0, 0.3, 0.226));
+    g.add(at(box(0.2, 0.12, 0.02, 0xf5f0e2), 0.26, 0.52, 0.24));
+  } else if (kind === 'jump') {               // a square keep
+    g.add(at(box(0.5, 0.9, 0.5, 0xbdb6a6), 0, 0.53, 0));
+    for (const [x, z] of [[-0.22, -0.22], [0.22, -0.22], [-0.22, 0.22], [0.22, 0.22]]) g.add(at(box(0.12, 0.14, 0.12, 0xa8a192), x, 1.05, z));
+    for (const y of [0.45, 0.75]) g.add(at(new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.14, 0.02), glow(lit)), 0, y, 0.256));
+  } else if (kind === 'db') {                 // stacked drums
+    for (const [x, z, n] of [[-0.14, 0, 3], [0.2, 0.08, 2]]) for (let i = 0; i < n; i += 1) {
+      g.add(at(cyl(0.2, 0.2, 0.2, 14, i % 2 ? 0xd9e6dc : 0xb9cfc0), x, 0.19 + i * 0.23, z));
+      g.add(at(cyl(0.21, 0.21, 0.03, 14, roof), x, 0.3 + i * 0.23, z));
+    }
+  } else if (kind === 'app') {                // a workshop with a chimney
+    g.add(at(box(0.66, 0.36, 0.46, wall), 0, 0.26, 0));
+    const r = box(0.7, 0.05, 0.3, roof); r.rotation.x = 0.5; g.add(at(r, 0, 0.5, 0.12));
+    const r2 = box(0.7, 0.05, 0.3, roof); r2.rotation.x = -0.5; g.add(at(r2, 0, 0.5, -0.12));
+    g.add(at(cyl(0.06, 0.07, 0.5, 8, 0x8a5a4a), 0.22, 0.6, -0.12));
+    for (const x of [-0.18, 0.1]) g.add(at(new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.02), glow(lit)), x, 0.28, 0.236));
+  } else if (kind === 'dns') {                // a signpost obelisk
+    g.add(at(cyl(0.1, 0.18, 0.95, 4, wall), 0, 0.55, 0));
+    g.add(at(cyl(0, 0.12, 0.2, 4, roof), 0, 1.12, 0));
+    for (const [y, ry] of [[0.8, 0.3], [0.62, -0.9], [0.44, 1.8]]) { const sign = box(0.4, 0.09, 0.03, roof); sign.rotation.y = ry; g.add(at(sign, Math.cos(ry) * 0.18, y, -Math.sin(ry) * 0.18)); }
+  } else if (kind === 'site') {               // market stalls
+    for (const [x, z, c] of [[-0.14, 0.02, 0xc0563a], [0.2, 0.02, 0x3f7fb5], [0.03, -0.26, 0xe0b040]]) {
+      g.add(at(box(0.26, 0.18, 0.2, 0x9a6b3c), x, 0.17, z));
+      const aw = box(0.32, 0.03, 0.28, c); aw.rotation.x = 0.25; g.add(at(aw, x, 0.42, z));
+      for (const dx of [-0.13, 0.13]) g.add(at(cyl(0.012, 0.012, 0.34, 4, 0x4a3320), x + dx, 0.25, z + 0.1));
+    }
+  } else {                                    // a dark spiked fort
+    g.add(at(cyl(0.3, 0.42, 0.7, 6, 0x2f2540), 0, 0.43, 0));
+    for (let i = 0; i < 6; i += 1) g.add(at(cyl(0, 0.07, 0.36, 4, 0x1d1528), Math.cos(i * 1.047) * 0.3, 0.9, Math.sin(i * 1.047) * 0.3));
+    g.add(at(ball(0.13, 0xd07bff, true), 0, 0.95, 0));
+  }
+  g.add(at(cyl(0.014, 0.014, 0.5, 5, 0x4a3320), -0.6, 0.55, -0.1));
+  g.add(at(box(0.24, 0.15, 0.02, hostile ? 0x7a2a8a : 0x2f6fb5), -0.47, 0.72, -0.1));
   const fire = new THREE.Group();
-  for (let i = 0; i < 6; i += 1) {
-    const f = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.5, 5), new THREE.MeshBasicMaterial({ color: i % 2 ? 0xffb02e : 0xff5a1f }));
-    fire.add(at(f, Math.cos(i * 1.05) * 0.38, 0.75, Math.sin(i * 1.05) * 0.38));
+  for (let i = 0; i < 7; i += 1) {
+    const f = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.55, 5), glow(i % 2 ? 0xffb02e : 0xff5a1f));
+    fire.add(at(f, Math.cos(i * 0.9) * 0.36, 0.8, Math.sin(i * 0.9) * 0.36));
   }
   fire.visible = false;
   g.add(fire);
@@ -130,9 +205,9 @@ export function createBoard(container, labelLayer) {
   scene.background = new THREE.Color(PAPER);
   scene.fog = new THREE.Fog(PAPER, 34, 70);
   const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 200);
-  camera.position.set(-0.6, 17, 13.5);
+  camera.position.set(-1.3, 18, 14.4);
   const controls = new OrbitControls(camera, renderer.domElement);
-  controls.target.set(-0.6, 0, 0.4);
+  controls.target.set(-1.3, 0, 0.5);
   controls.enableDamping = true;
   controls.minDistance = 9;
   controls.maxDistance = 36;
@@ -140,6 +215,7 @@ export function createBoard(container, labelLayer) {
   controls.maxPolarAngle = 1.2;
   controls.screenSpacePanning = false;
   controls.update();
+  renderer.domElement.addEventListener('pointerdown', () => { intro = null; });
 
   scene.add(new THREE.HemisphereLight(0xdfeeff, 0xb39a6a, 1.15));
   const sun = new THREE.DirectionalLight(0xffe2b0, 2.1);
@@ -322,7 +398,7 @@ export function createBoard(container, labelLayer) {
     hosts.forEach((h, i) => {
       const [col, row] = cells[i % cells.length];
       const p = cell(col, row);
-      const d = makeDistrict(h.hostile, i);
+      const d = makeDistrict(h.name, h.hostile, i);
       d.scale.setScalar(1.35);
       d.position.set(p.x, landTop(col, row), p.z);
       level.add(d);
@@ -331,7 +407,7 @@ export function createBoard(container, labelLayer) {
       label(`d:${h.address}`, `lbl-district${h.hostile ? ' hostile' : ''}`).textContent = h.name;
     });
     const rp = cell(2, 1);
-    rivalCity = makeDistrict(false, 1);
+    rivalCity = makeDistrict('JUMP', false, 1);
     rivalCity.scale.setScalar(0.8);
     rivalCity.position.set(rp.x, landTop(2, 1), rp.z);
     level.add(rivalCity);
@@ -364,6 +440,34 @@ export function createBoard(container, labelLayer) {
     });
   }
   let instant = false;
+  const sparks = [];
+  const HOME = new THREE.Vector3(-1.3, 18, 14.4);
+  let intro = null;
+  // Small pieces thrown up when the gatehouse judges a unit.
+  function burst(pos, color, n = 14, speed = 2.2) {
+    if (instant) return;
+    for (let i = 0; i < n; i += 1) {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, 0.07), new THREE.MeshBasicMaterial({ color, transparent: true }));
+      mesh.position.copy(pos);
+      const a = (i / n) * Math.PI * 2;
+      scene.add(mesh);
+      sparks.push({ mesh, t: 0, life: 0.75, vel: new THREE.Vector3(Math.cos(a) * speed * (0.5 + (i % 3) * 0.3), 2.4 + (i % 4) * 0.5, Math.sin(a) * speed * (0.5 + (i % 3) * 0.3)) });
+    }
+  }
+  function shock(pos, color) {
+    if (instant) return;
+    const mesh = new THREE.Mesh(new THREE.RingGeometry(0.34, 0.42, 24), new THREE.MeshBasicMaterial({ color, transparent: true, side: THREE.DoubleSide }));
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.set(pos.x, GROUND + 0.03, pos.z);
+    scene.add(mesh);
+    sparks.push({ mesh, t: 0, life: 0.6, ring: true });
+  }
+  // A ring on the ground in front of the gatehouse: this is where units are judged.
+  const judgeRing = new THREE.Mesh(new THREE.RingGeometry(0.62, 0.8, 6), new THREE.MeshBasicMaterial({ color: 0xf2c96b, transparent: true, opacity: 0.4, side: THREE.DoubleSide }));
+  judgeRing.rotation.x = -Math.PI / 2;
+  judgeRing.rotation.z = Math.PI / 6;
+  { const jp = cell(WALL_COL - 1, GATE_ROW); judgeRing.position.set(jp.x, GROUND + 0.02, jp.z); }
+  scene.add(judgeRing);
 
   // Puts every unit where it should be this turn and updates its banner.
   function sync(units, travel, bannerFor) {
@@ -430,12 +534,14 @@ export function createBoard(container, labelLayer) {
     gateGlow.material.opacity = 0.85;
     const above = gatePos.clone(); above.y = 1.6;
     if (!through) {
+      burst(gatePos.clone().setY(0.9), e.outcome === 'turned-away' ? 0xd0453c : 0xb7b2a6); shock(gatePos, 0xd0453c);
       float(e.outcome === 'turned-away' ? 'TURNED AWAY' : 'BLOCKED', above, e.outcome === 'turned-away' ? 'bad' : 'good');
       const back = gatePos.clone().lerp(en.start, 0.25); back.y = -0.6;
       await tween(m.group, back, 0.45, { hop: 0.5 });
     } else if (e.verdict.verdict === 'stopped-by-control') {
       const mid = gatePos.clone().lerp(en.goal, 0.3); mid.y = GROUND;
       await tween(m.group, mid, 0.35);
+      shock(mid, 0x3fd0e0); burst(mid.clone().setY(0.8), 0x3fd0e0, 18, 1.6);
       float(e.verdict.control === 'dnsFiltering' ? 'FILTERED' : 'SCANNED', mid.clone().setY(1.4), 'good');
       const down = mid.clone(); down.y = -0.6;
       await tween(m.group, down, 0.3);
@@ -443,9 +549,9 @@ export function createBoard(container, labelLayer) {
       const goal = en.goal.clone(); goal.y = GROUND;
       await tween(m.group, goal, 0.6, { hop: 0.3 });
       const top = goal.clone().setY(1.7);
-      if (e.outcome === 'breach') { burn(m.unit.host, 3.5); float('BREACH', top, 'bad'); }
+      if (e.outcome === 'breach') { burn(m.unit.host, 3.5); burst(goal.clone().setY(0.9), 0xff7a1f, 22, 2.8); shock(goal, 0xff5a1f); float('BREACH', top, 'bad'); }
       else if (e.outcome === 'exposed') float('NOT NEEDED', top, 'warn');
-      else float(`+${e.points}`, top, 'good');
+      else { burst(goal.clone().setY(0.9), 0xf2c96b, 10, 1.3); float(`+${e.points}`, top, 'good'); }
     }
     scene.remove(m.group);
     unitMeshes.delete(e.unit.id);
@@ -488,6 +594,29 @@ export function createBoard(container, labelLayer) {
       if (m.grow !== undefined && m.grow < 1) { m.grow = Math.min(1, m.grow + dt * 4); m.group.scale.setScalar(Math.max(0.01, m.grow * 1.5)); }
     }
     const time = clock.elapsedTime;
+    if (!instant) {
+      for (const [id, um] of unitMeshes) {
+        const body = um.group.userData.body;
+        const k = um.unit.kind;
+        if (k === 'wanted') { body.position.y = Math.abs(Math.sin(time * 5 + id)) * 0.025; body.rotation.z = Math.sin(time * 5 + id) * 0.02; }
+        else if (k === 'attack') { body.rotation.y = Math.sin(time * 2.2 + id) * 0.25; body.position.y = Math.abs(Math.sin(time * 3 + id)) * 0.03; }
+        else { body.position.y = 0.06 + Math.sin(time * 2 + id) * 0.05; body.rotation.y = time * 0.6 + id; }
+      }
+    }
+    for (let i = sparks.length - 1; i >= 0; i -= 1) {
+      const sp = sparks[i];
+      sp.t += dt;
+      if (sp.ring) { const k = sp.t / sp.life; sp.mesh.scale.setScalar(0.3 + k * 2.4); sp.mesh.material.opacity = 0.9 * (1 - k); }
+      else { sp.vel.y -= 5.5 * dt; sp.mesh.position.addScaledVector(sp.vel, dt); sp.mesh.rotation.x += dt * 6; sp.mesh.material.opacity = 1 - sp.t / sp.life; }
+      if (sp.t >= sp.life) { scene.remove(sp.mesh); sparks.splice(i, 1); }
+    }
+    judgeRing.material.opacity = 0.35 + Math.sin(time * 2.5) * 0.15;
+    if (intro) {
+      intro.t = Math.min(1, intro.t + dt / 1.8);
+      const k = 1 - (1 - intro.t) ** 3;
+      camera.position.lerpVectors(intro.from, HOME, k);
+      if (intro.t >= 1) intro = null;
+    }
     for (const d of [...Object.values(districts).map((x) => x.group), rivalCity].filter(Boolean)) {
       const fire = d.userData.fire;
       if (fire.visible) {
@@ -548,6 +677,8 @@ export function createBoard(container, labelLayer) {
   return {
     load, sync, playEvent, setRivalDown,
     setInstant(on) { instant = on; },
-    resetView() { camera.position.set(-0.6, 17, 13.5); controls.target.set(-0.6, 0, 0.4); controls.update(); },
+    resetView() { controls.target.set(-1.3, 0, 0.5); camera.position.copy(HOME); controls.update(); },
+    // A slow glide in from high above when a level begins.
+    flyIn() { if (instant || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return; controls.target.set(-1.3, 0, 0.5); intro = { t: 0, from: new THREE.Vector3(-9, 27, 21) }; },
   };
 }
