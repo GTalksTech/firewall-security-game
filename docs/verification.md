@@ -463,3 +463,18 @@ Found while checking: after an update the browser can keep an old copy of a scri
 - Frame rate on real hardware. The automated browser draws in software.
 - Sound, touch, a screen reader, other browsers, a machine without WebGL.
 - Phone-size screens remain unsuitable for this version.
+
+## Blender-built models (2026-11-17)
+
+The owner asked for better 3D assets and for Blender to be installed and used. Blender 5.3 was installed with Homebrew and is run without its window, so no add-on or MCP server was needed. `tools/blender/build_models.py` builds 22 original models (three units, nine districts, wall tower, wall segment, gatehouse, a hex tile, two trees, mountain, hills, barn, boulder) with bevels and smooth shading and writes them to `assets/models/` as `.glb` (2.4 MB in all). The game loads them through three.js's glTF loader, now also in `vendor/`. If a model fails to load, the board falls back to the earlier code-built shape for that piece.
+
+| Check | Result |
+|---|---|
+| `blender --background --python tools/blender/build_models.py` | Pass: 22 models written, 40 to 6,962 triangles each |
+| `node tests/run-node.mjs` | Pass: 167 tests |
+| Game loads every model, 1440x900 | Pass: no console errors or warnings; screenshots at map distance and zoomed in on the gatehouse |
+| All three levels won with three stars through the real interface | Pass: scores 187, 193, 202; no requests to other hosts |
+
+Honest assessment from the screenshots: the wagon and ox, the wall towers and the districts are clearly better than the box-and-cone versions, mostly from rounded edges and smooth shading. They are still untextured and script-built, not artist-made. The gatehouse archway is hard to see from the default camera angle.
+
+Not checked: the fallback path when a model is missing, frame rate on real hardware (the wagon is 5,500 triangles and several can be on the map), and loading time on a slow connection if the game is ever hosted.

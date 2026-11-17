@@ -2,7 +2,7 @@
 
 **A turn-based strategy game about firewall rules. Your network is a city on a hex map, your firewall is its gatehouse, and every rule is a gate. Let the right traffic in, turn the rest away, and outlast the rival.**
 
-![Level 1: a raider from a known-bad address is being traced to the web server, and the advisor says which gate would stop it](assets/card.png)
+![Level 2: an attack carrying malware is being traced to a hostile site, and the advisor says which switch would stop it](assets/card.png)
 
 Firewall Security Faceoff is for network engineers and students. Traffic marches across a 3D hex map toward your gatehouse: wagons are wanted traffic, raiders are attacks, drifters are traffic nobody asked for. Every unit carries a banner saying what it is and what your gates, as they stand right now, will do with it. Each turn you make up to three changes to your gates, then end the turn and everything moves one step. Gates are checked from the top down, the first match decides, and anything no gate allows is turned away. The firewall is vendor-neutral.
 
@@ -49,7 +49,7 @@ Open **http://127.0.0.1:8000** in a current desktop browser. Keep the terminal r
 - **Every verdict comes from one rule engine** (`engine/rules.js`). The banners, the advisor and the end-of-turn results all ask it; nothing else decides whether traffic gets in.
 - **The traffic is a fixed timetable** built from the level data. Units take three turns to reach the gatehouse, each attack appears twice, and new requests arrive mid-level. The same play always meets the same traffic.
 - **Losing:** each attack that gets in costs a heart, each piece of wanted traffic turned away costs trust; run out of either and the level restarts. **Stars:** three for a level with nothing wrongly let in or turned away and a final gatehouse the engine agrees is correct.
-- **The 3D map uses three.js**, copied into `vendor/` with its license. Nothing is downloaded when you play, and there is nothing to install.
+- **The 3D map uses three.js**, copied into `vendor/` with its license. The 22 models in `assets/models/` were built in Blender by a script in this repository (`tools/blender/build_models.py`); none came from an asset pack. Nothing is downloaded when you play, and there is nothing to install to play.
 - **No text entry anywhere.** Sound effects are synthesized in the browser and can be switched off on the home menu.
 
 ## What the game simplifies
@@ -84,7 +84,9 @@ index.html                       Strategy game shell
 strategy/main.js, strategy.css   Strategy game: screens, gatehouse panel, advisor, guide
 strategy/board.js                The 3D hex map (draws only; decides nothing)
 strategy/turns.js                Turn timetable and turn rules (no screen; tested)
-vendor/                          three.js and its license
+vendor/                          three.js, its glTF loader, and its license
+assets/models/                   The 3D models (.glb), built by the script below
+tools/blender/build_models.py    Rebuilds every model: blender --background --python tools/blender/build_models.py
 arcade.html, game/               Real-time arcade version; game/logic.js is shared and tested
 classic.html, style.css, main.js, ui/   Text version
 engine/rules.js                  Pure rule evaluation, outcome, and score
@@ -102,7 +104,7 @@ To add or change a level, edit `data/levels.json` and add its hand-worked cases 
 
 - No person has play-tested the strategy game yet. It was driven by an automated browser, which shows it works and can be won, not that it is fun or well paced.
 - Made for a desktop or laptop screen. On a phone the map is too small to be useful.
-- The 3D models are built from simple shapes in code, not sculpted art.
+- The 3D models were built by a script driving Blender, not sculpted by an artist. They have bevels and smooth shading but no textures.
 - Needs a browser with WebGL; if it is missing, the game offers the other two versions.
 - Tested in one browser engine (Chromium). Not tested with a screen reader or touch. Sound was not listened to.
 - The turn-by-turn battle mode from the original idea is not built.

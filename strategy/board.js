@@ -2,6 +2,29 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+// The models are built in Blender by tools/blender/build_models.py and shipped in assets/models.
+// If one cannot be loaded, the board falls back to a simpler shape made in code.
+const MODEL_NAMES = [
+  'unit-wanted', 'unit-attack', 'unit-unneeded',
+  'district-web', 'district-mail', 'district-jump', 'district-db', 'district-app', 'district-dns', 'district-site', 'district-hostile', 'district-rival',
+  'wall-tower', 'wall-segment', 'gatehouse', 'tile', 'tree-pine', 'tree-oak', 'mountain', 'hills', 'barn', 'boulder',
+];
+export async function loadModels(base = 'assets/models/') {
+  const loader = new GLTFLoader();
+  const models = {};
+  await Promise.all(MODEL_NAMES.map((name) => new Promise((resolve) => {
+    loader.load(`${base}${name}.glb`, (gltf) => {
+      gltf.scene.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+      models[name] = gltf.scene;
+      resolve();
+    }, undefined, () => resolve());
+  })));
+  return models;
+}
+let MODELS = {};
+const inst = (name) => (MODELS[name] ? MODELS[name].clone(true) : null);
 
 const S = 1;                 // hex size
 const COLS = 15;
@@ -77,6 +100,13 @@ function ball(r, color, basic) { const m = new THREE.Mesh(new THREE.SphereGeomet
 // Each kind of traffic has its own outline, so it reads without colour:
 // a wagon pulled by an ox, a horned raider with a spear, a hooded drifter with a lantern.
 function makeUnit(kind) {
+  const model = inst(`unit-${kind}`);
+  if (model) {
+    const g = new THREE.Group();
+    g.add(model);
+    g.userData.body = model;
+    return g;
+  }
   const body = new THREE.Group();
   if (kind === 'wanted') {
     body.add(at(box(0.6, 0.14, 0.36, 0x9a6b3c), -0.12, 0.2, 0));
@@ -130,8 +160,21 @@ function house(g, x, z, w, h, wall, roof, lit = 0xffe9a0) {
   const win2 = win.clone(); win2.rotation.y = Math.PI / 2; g.add(at(win2, x - w / 2 - 0.006, 0.08 + h * 0.55, z));
 }
 function makeDistrict(name, hostile, seed) {
-  const kind = districtKind(name, hostile);
+  const kind = name === 'RIVAL' ? 'rival' : districtKind(name, hostile);
   const g = new THREE.Group();
+  const model = inst(`district-${kind}`);
+  if (model) {
+    g.add(model);
+    const blaze = new THREE.Group();
+    for (let i = 0; i < 7; i += 1) {
+      const f = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.55, 5), glow(i % 2 ? 0xffb02e : 0xff5a1f));
+      blaze.add(at(f, Math.cos(i * 0.9) * 0.36, 0.8, Math.sin(i * 0.9) * 0.36));
+    }
+    blaze.visible = false;
+    g.add(blaze);
+    g.userData.fire = blaze;
+    return g;
+  }
   const wall = hostile ? 0x4d3f63 : 0xece5d3;
   const roof = { web: 0xc0563a, mail: 0x3f7fb5, jump: 0x7a6a9c, db: 0x4f9a6a, app: 0xc98a2b, dns: 0x2f8f9a, site: 0xb5563f, hostile: 0x2a2038 }[kind];
   const lit = hostile ? 0xd07bff : 0xffe9a0;
@@ -191,7 +234,8 @@ function makeDistrict(name, hostile, seed) {
   return g;
 }
 
-export function createBoard(container, labelLayer) {
+export function createBoard(container, labelLayer, models = {}) {
+  MODELS = models;
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
   renderer.shadowMap.enabled = true;
@@ -237,6 +281,8 @@ export function createBoard(container, labelLayer) {
   const capGeo = new THREE.CylinderGeometry(S * 0.9, S * 0.97, CAP, 6);
   const mats = {};
   const m = (color) => (mats[color] = mats[color] || mat(color));
+  const stds = {};
+  const std = (color, rough) => (stds[color] = stds[color] || new THREE.MeshStandardMaterial({ color, roughness: rough }));
   for (let row = 0; row < ROWS; row += 1) {
     for (let col = 0; col < COLS; col += 1) {
       const name = terrainAt(col, row);
@@ -252,16 +298,31 @@ export function createBoard(container, labelLayer) {
         continue;
       }
       const shore = neighbours(col, row).some(([c, r]) => terrainAt(c, r) === 'water');
-      const side = new THREE.Mesh(new THREE.CylinderGeometry(S * 0.985, S * 0.985, hgt, 6), m(name === 'stone' ? 0x8f897c : shore ? 0xd8c696 : 0x8c7250));
-      side.position.set(p.x, hgt / 2, p.z);
-      side.receiveShadow = true;
-      scene.add(side);
+      const sideColor = name === 'stone' ? 0x8f897c : shore ? 0xd8c696 : 0x8c7250;
       const tint = 0.94 + (hsh % 7) * 0.02;
-      const cap = new THREE.Mesh(capGeo, m(shaded(TERRAIN[name].color, tint)));
-      cap.position.set(p.x, hgt + CAP / 2, p.z);
-      cap.receiveShadow = true;
-      scene.add(cap);
+      const topColor = shaded(TERRAIN[name].color, tint);
       const top = hgt + CAP;
+      const tileModel = inst('tile');
+      if (tileModel) {
+        tileModel.traverse((o) => {
+          if (!o.isMesh) return;
+          o.castShadow = false;
+          o.material = o.material.name === 'top' ? std(topColor, 0.9) : std(sideColor, 0.95);
+        });
+        tileModel.scale.set(S * 0.985, top, S * 0.985);
+        tileModel.position.set(p.x, 0, p.z);
+        scene.add(tileModel);
+      } else {
+        const side = new THREE.Mesh(new THREE.CylinderGeometry(S * 0.985, S * 0.985, hgt, 6), m(sideColor));
+        side.position.set(p.x, hgt / 2, p.z);
+        side.receiveShadow = true;
+        scene.add(side);
+        const cap = new THREE.Mesh(capGeo, m(topColor));
+        cap.position.set(p.x, hgt + CAP / 2, p.z);
+        cap.receiveShadow = true;
+        scene.add(cap);
+      }
+      const prop = (model, x, z, scale, turn) => { model.position.set(x, top, z); model.scale.setScalar(scale); model.rotation.y = turn; scene.add(model); return true; };
       if (name === 'forest') {
         for (let i = 0; i < 4; i += 1) {
           const ang = hsh + i * 1.7;
@@ -269,6 +330,8 @@ export function createBoard(container, labelLayer) {
           const x = p.x + Math.cos(ang) * rad;
           const z = p.z + Math.sin(ang) * rad;
           const sc = 0.8 + ((hsh + i * 13) % 5) * 0.09;
+          const tree = inst((hsh + i) % 3 === 0 ? 'tree-oak' : 'tree-pine');
+          if (tree) { prop(tree, x, z, sc * 1.15, ang); continue; }
           scene.add(at(cyl(0.035 * sc, 0.045 * sc, 0.16 * sc, 5, 0x5b4025), x, top + 0.08 * sc, z));
           if ((hsh + i) % 3 === 0) {
             const crown = new THREE.Mesh(new THREE.IcosahedronGeometry(0.2 * sc, 0), m(0x4c8f44)); crown.castShadow = true;
@@ -279,17 +342,24 @@ export function createBoard(container, labelLayer) {
           }
         }
       } else if (name === 'hills') {
-        for (const [dx, dz, r] of [[0.12, 0, 0.42], [-0.3, 0.25, 0.26], [-0.2, -0.3, 0.2]]) {
+        const hm = inst('hills');
+        if (hm) prop(hm, p.x, p.z, 1, hsh);
+        else for (const [dx, dz, r] of [[0.12, 0, 0.42], [-0.3, 0.25, 0.26], [-0.2, -0.3, 0.2]]) {
           const bump = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 0), m(0x97905f)); bump.castShadow = true; bump.scale.y = 0.6;
           scene.add(at(bump, p.x + dx, top + 0.02, p.z + dz));
         }
+      } else if (name === 'mountain' && inst('mountain')) {
+        prop(inst('mountain'), p.x, p.z, 1.05, hsh * 0.7);
       } else if (name === 'mountain') {
         scene.add(at(cyl(0, 0.78, 1.5, 6, 0x857c72), p.x - 0.1, top + 0.75, p.z));
         scene.add(at(cyl(0, 0.3, 0.56, 6, 0xf5f3ee), p.x - 0.1, top + 1.23, p.z));
         scene.add(at(cyl(0, 0.5, 0.9, 5, 0x91887c), p.x + 0.42, top + 0.45, p.z + 0.25));
       } else if (name === 'farm') {
         for (let i = -2; i <= 2; i += 1) scene.add(at(box(1.0 - Math.abs(i) * 0.16, 0.035, 0.1, i % 2 ? 0xc9a63c : 0xa8bf4f), p.x, top + 0.018, p.z + i * 0.19));
-        if (hsh % 2 === 0) { scene.add(at(box(0.22, 0.18, 0.2, 0xe9e2d0), p.x + 0.5, top + 0.09, p.z - 0.45)); const r = cyl(0, 0.2, 0.14, 4, 0xa6452f); r.rotation.y = Math.PI / 4; scene.add(at(r, p.x + 0.5, top + 0.25, p.z - 0.45)); }
+        if (hsh % 2 === 0 && inst('barn')) prop(inst('barn'), p.x + 0.45, p.z - 0.45, 1.1, hsh);
+        else if (hsh % 2 === 0) { scene.add(at(box(0.22, 0.18, 0.2, 0xe9e2d0), p.x + 0.5, top + 0.09, p.z - 0.45)); const r = cyl(0, 0.2, 0.14, 4, 0xa6452f); r.rotation.y = Math.PI / 4; scene.add(at(r, p.x + 0.5, top + 0.25, p.z - 0.45)); }
+      } else if (name === 'desert' && hsh % 3 === 0 && inst('boulder')) {
+        prop(inst('boulder'), p.x + 0.3, p.z - 0.2, 1.2, hsh);
       } else if (name === 'desert' && hsh % 3 === 0) {
         const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.16, 0), m(0xbda77a)); rock.castShadow = true;
         scene.add(at(rock, p.x + 0.3, top + 0.06, p.z - 0.2));
@@ -315,35 +385,45 @@ export function createBoard(container, labelLayer) {
   }
   for (let row = 1; row < ROWS - 1; row += 1) {
     const p = cell(WALL_COL, row);
-    if (row !== GATE_ROW) tower(p.x, p.z, 0.27, 0.95, null);
+    const tm = row !== GATE_ROW ? inst('wall-tower') : null;
+    if (tm) { tm.position.set(p.x, stoneTop, p.z); scene.add(tm); }
+    else if (row !== GATE_ROW) tower(p.x, p.z, 0.27, 0.95, null);
     if (row < ROWS - 2) {
       const q = cell(WALL_COL, row + 1);
       const len = p.distanceTo(q);
       const seg = new THREE.Group();
-      seg.add(at(box(0.3, 0.66, len, STONE), 0, 0.33, 0));
-      seg.add(at(box(0.4, 0.06, len, STONE_DARK), 0, 0.69, 0));
-      for (let i = 0; i < 5; i += 1) seg.add(at(box(0.09, 0.12, 0.16, STONE), -0.15, 0.78, (i - 2) * (len / 5.4)));
+      const sm = inst('wall-segment');
+      if (sm) { sm.scale.z = len; seg.add(sm); }
+      else {
+        seg.add(at(box(0.3, 0.66, len, STONE), 0, 0.33, 0));
+        seg.add(at(box(0.4, 0.06, len, STONE_DARK), 0, 0.69, 0));
+        for (let i = 0; i < 5; i += 1) seg.add(at(box(0.09, 0.12, 0.16, STONE), -0.15, 0.78, (i - 2) * (len / 5.4)));
+      }
       seg.position.set((p.x + q.x) / 2, stoneTop, (p.z + q.z) / 2);
       seg.lookAt(q.x, stoneTop, q.z);
       scene.add(seg);
     }
   }
   const gate = cell(WALL_COL, GATE_ROW);
+  const gm = inst('gatehouse');
+  if (gm) { gm.position.set(gate.x, stoneTop, gate.z); scene.add(gm); }
+  else {
   for (const dz of [-0.62, 0.62]) tower(gate.x, gate.z + dz, 0.36, 1.7, 0x2f6fb5);
-  scene.add(at(box(0.62, 0.5, 1.0, STONE_DARK), gate.x, stoneTop + 1.25, gate.z));
-  scene.add(at(box(0.7, 0.08, 1.1, STONE), gate.x, stoneTop + 1.54, gate.z));
-  for (let i = -2; i <= 2; i += 1) scene.add(at(box(0.12, 0.14, 0.12, STONE), gate.x - 0.3, stoneTop + 1.65, gate.z + i * 0.22));
-  scene.add(at(box(0.16, 0.9, 0.84, 0x5b4025), gate.x, stoneTop + 0.5, gate.z)); // the doors
-  for (const dz of [-0.2, 0.2]) scene.add(at(box(0.18, 0.86, 0.03, 0x3d2a17), gate.x, stoneTop + 0.5, gate.z + dz));
-  for (const dz of [-0.62, 0.62]) {
-    scene.add(at(cyl(0.012, 0.012, 0.6, 5, 0x3d2a17), gate.x, stoneTop + 2.75, gate.z + dz));
-    scene.add(at(box(0.3, 0.2, 0.02, 0xf2c96b), gate.x + 0.16, stoneTop + 2.92, gate.z + dz));
+    scene.add(at(box(0.62, 0.5, 1.0, STONE_DARK), gate.x, stoneTop + 1.25, gate.z));
+    scene.add(at(box(0.7, 0.08, 1.1, STONE), gate.x, stoneTop + 1.54, gate.z));
+    for (let i = -2; i <= 2; i += 1) scene.add(at(box(0.12, 0.14, 0.12, STONE), gate.x - 0.3, stoneTop + 1.65, gate.z + i * 0.22));
+    scene.add(at(box(0.16, 0.9, 0.84, 0x5b4025), gate.x, stoneTop + 0.5, gate.z)); // the doors
+    for (const dz of [-0.2, 0.2]) scene.add(at(box(0.18, 0.86, 0.03, 0x3d2a17), gate.x, stoneTop + 0.5, gate.z + dz));
+    for (const dz of [-0.62, 0.62]) {
+      scene.add(at(cyl(0.012, 0.012, 0.6, 5, 0x3d2a17), gate.x, stoneTop + 2.75, gate.z + dz));
+      scene.add(at(box(0.3, 0.2, 0.02, 0xf2c96b), gate.x + 0.16, stoneTop + 2.92, gate.z + dz));
+    }
   }
   const torches = [];
-  for (const dz of [-0.98, 0.98]) for (const dx of [-0.42, 0.42]) {
+  for (const dz of [-1.0, 1.0]) for (const dx of [-0.44, 0.44]) {
     const flame = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.18, 5), new THREE.MeshBasicMaterial({ color: 0xffb02e }));
-    scene.add(at(cyl(0.02, 0.02, 0.5, 5, 0x3d2a17), gate.x + dx, stoneTop + 0.25, gate.z + dz));
-    scene.add(at(flame, gate.x + dx, stoneTop + 0.58, gate.z + dz));
+    if (!gm) scene.add(at(cyl(0.02, 0.02, 0.5, 5, 0x3d2a17), gate.x + dx, stoneTop + 0.25, gate.z + dz));
+    scene.add(at(flame, gate.x + dx, stoneTop + 0.64, gate.z + dz));
     torches.push(flame);
   }
   const gateGlow = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.0, 0.9), new THREE.MeshBasicMaterial({ color: 0xffe08a, transparent: true, opacity: 0 }));
@@ -407,7 +487,7 @@ export function createBoard(container, labelLayer) {
       label(`d:${h.address}`, `lbl-district${h.hostile ? ' hostile' : ''}`).textContent = h.name;
     });
     const rp = cell(2, 1);
-    rivalCity = makeDistrict('JUMP', false, 1);
+    rivalCity = makeDistrict(MODELS['district-rival'] ? 'RIVAL' : 'JUMP', false, 1);
     rivalCity.scale.setScalar(0.8);
     rivalCity.position.set(rp.x, landTop(2, 1), rp.z);
     level.add(rivalCity);

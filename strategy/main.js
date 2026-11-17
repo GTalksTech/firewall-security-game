@@ -12,7 +12,7 @@ import {
   leakHint, leakFix, starsFor, candidatesFor, CONTROL_SHORT, CONTROL_HELP,
 } from '../game/logic.js';
 import { RULES, newGame, spawnTurn, endTurn, forecast, activeRequests, traceFlow } from './turns.js';
-import { createBoard } from './board.js';
+import { createBoard, loadModels } from './board.js';
 
 const $ = (sel) => document.querySelector(sel);
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -709,7 +709,7 @@ async function boot() {
   state.levels = levels;
   loadProgress();
   try {
-    state.board = createBoard($('#map'), $('#labels'));
+    state.board = createBoard($('#map'), $('#labels'), await loadModels());
   } catch (err) {
     showScreen({
       title: 'This browser cannot draw the 3D map', solid: true,

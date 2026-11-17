@@ -12,7 +12,7 @@ game:
   play_minutes: 15
   levels: 3
   card_image: assets/card.png
-  card_image_alt: "A 3D hex map with mountains, fields and a battlemented wall. Wagons and raiders approach the gatehouse under banners reading GETS IN, BLOCKED and WILL BREACH; one raider is being traced with a dotted route to a server; a side panel lists the firewall rules as numbered gates and marks the one that decides."
+  card_image_alt: "A 3D hex map with mountains, fields and a battlemented wall. Ox-drawn wagons and horned raiders approach the gatehouse under banners reading GETS IN, BLOCKED and WILL BREACH; one raider is traced with a dotted route to a dark spiked fort; a side panel lists the firewall rules as numbered gates."
   repo: https://github.com/GTalksTech/firewall-security-game
   repo_path: ""
   license: Apache-2.0
@@ -48,13 +48,13 @@ build:
     - "MITRE ATT&CK Enterprise technique and mitigation pages"
     - "NAF AC6 workshop StarterKit (CONSTITUTION.md, SPEC.md, PLAN.md) and LAB README"
   skills_and_plugins: [speckit-constitution, speckit-specify, speckit-clarify, speckit-plan, speckit-tasks, speckit-analyze, speckit-implement, ralph-loop plugin]
-  other_tools: [three.js r160 (MIT) for the 3D map, Node.js 26 for the test runner, Python http.server, Chromium via Playwright, curl, GitHub CLI]
-  human_prompts: 24
+  other_tools: [three.js r160 (MIT) for the 3D map, Blender 5.3 run headless to build the 3D models, Node.js 26 for the test runner, Python http.server, Chromium via Playwright, curl, GitHub CLI]
+  human_prompts: 26
   usage:
     input_tokens: unknown
     output_tokens: unknown
     cost_note: unknown
-  ai_generated_assets: ["pixel art and SVG: drawn in code by the build agent", "audio: synthesized at runtime with Web Audio, no files", "images from an image generator: none"]
+  ai_generated_assets: ["3D models: 22 .glb files built by a Blender script the build agent wrote (tools/blender/build_models.py); no asset packs or downloaded models", "pixel art and SVG: drawn in code by the build agent", "audio: synthesized at runtime with Web Audio, no files", "images from an image generator: none"]
 
 runtime:
   kind: static-web
@@ -85,7 +85,7 @@ verification:
     - "Addresses match exactly; no subnet matching"
     - "NAT, routing, VPN, high availability, IPv6, logging, URL filtering, DNS over HTTPS and decryption exemptions are not modeled"
     - "The strategy game was designed and built in one sitting after play feedback; its specification was written alongside the build, not before it"
-    - "3D models are simple shapes built in code; no person has play-tested it; a phone screen is too small for it"
+    - "3D models are script-built in Blender, untextured; no person has play-tested it; a phone screen is too small for it"
     - "No human first-time player, screen reader, or second browser engine has tested it"
 ---
 
