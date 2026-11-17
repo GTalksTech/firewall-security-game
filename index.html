@@ -5,25 +5,63 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Firewall Security Faceoff</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="game/game.css">
 </head>
 <body>
-  <header class="site-header">
-    <p class="site-title">
-      <svg class="logo" viewBox="0 0 120 142" width="26" height="31" aria-hidden="true" focusable="false">
-        <path d="M60 6 L110 24 V70 C110 104 88 126 60 136 C32 126 10 104 10 70 V24 Z" fill="currentColor" opacity="0.25"/>
-        <path d="M60 6 L110 24 V70 C110 104 88 126 60 136 C32 126 10 104 10 70 V24 Z" fill="none" stroke="currentColor" stroke-width="9" stroke-linejoin="round"/>
-        <path d="M22 50 H98 M22 78 H98 M60 24 V50 M40 50 V78 M80 50 V78 M60 78 V112" fill="none" stroke="currentColor" stroke-width="6"/>
-      </svg>
-      Firewall Security Faceoff
-    </p>
-    <div id="status-bar" class="status-bar"></div>
-  </header>
-  <main id="app" tabindex="-1">
-    <p>Loading levels…</p>
-  </main>
-  <div id="live" class="visually-hidden" role="status" aria-live="polite" aria-atomic="true"></div>
-  <noscript>This game needs JavaScript to run.</noscript>
-  <script type="module" src="main.js"></script>
+  <div id="game" class="phase-title">
+    <header id="hud" aria-label="Game status">
+      <span class="hud-logo">FIREWALL FACEOFF</span>
+      <span id="hud-level" class="hud-chip"></span>
+      <span class="hud-bar" id="bar-integrity"><span class="hud-bar-label">SERVERS</span><span class="hud-bar-track"><span class="hud-bar-fill"></span></span><span class="hud-bar-text"></span></span>
+      <span class="hud-bar" id="bar-uptime"><span class="hud-bar-label">UPTIME</span><span class="hud-bar-track"><span class="hud-bar-fill"></span></span><span class="hud-bar-text"></span></span>
+      <span id="hud-score" class="hud-chip"></span>
+      <span id="hud-rival" class="hud-chip"></span>
+      <span class="hud-spacer"></span>
+      <button type="button" id="btn-help" class="hud-btn">MISSION</button>
+      <button type="button" id="btn-log" class="hud-btn" aria-expanded="false">LOG</button>
+      <button type="button" id="btn-sound" class="hud-btn" aria-pressed="true">SOUND: ON</button>
+      <a class="hud-btn" href="classic.html">TEXT EDITION</a>
+    </header>
+
+    <main id="stage">
+      <canvas id="field" aria-hidden="true"></canvas>
+      <p id="mission" class="mission-strip"></p>
+      <div id="wall-zone">
+        <p class="wall-title" id="wall-title">YOUR WALL · TOP GATE IS CHECKED FIRST</p>
+        <ol id="wall" aria-labelledby="wall-title"></ol>
+      </div>
+      <div id="banner" role="status" aria-live="polite"></div>
+    </main>
+
+    <footer id="tray-zone">
+      <div class="tray-head">
+        <p id="tray-title" class="tray-title">RULE TILES · DRAG ONTO YOUR WALL</p>
+        <p class="tray-help">Mouse: drag. Keyboard: Enter adds or removes, Arrow Up and Down reorder.</p>
+      </div>
+      <ul id="tray" aria-labelledby="tray-title"></ul>
+      <div class="tray-actions">
+        <button type="button" id="btn-launch" class="big-btn">LAUNCH WAVE</button>
+        <button type="button" id="btn-skip" class="small-btn" hidden>SKIP TO RESULT</button>
+        <button type="button" id="btn-speed" class="small-btn" hidden>SPEED: 1X</button>
+      </div>
+    </footer>
+
+    <aside id="log-panel" hidden aria-label="Text log of every packet">
+      <h2>PACKET LOG</h2>
+      <ol id="log"></ol>
+    </aside>
+
+    <div id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" hidden>
+      <div class="modal-card">
+        <h1 id="modal-title"></h1>
+        <div id="modal-body"></div>
+        <div id="modal-actions" class="modal-actions"></div>
+      </div>
+    </div>
+
+    <div id="live" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+  </div>
+  <noscript>This game needs JavaScript. A text edition is at classic.html.</noscript>
+  <script type="module" src="game/game.js"></script>
 </body>
 </html>

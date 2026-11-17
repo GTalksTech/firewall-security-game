@@ -68,8 +68,10 @@ result are recorded.
 - Repeated Submit actions MUST NOT award points, strength, or progress twice.
 - Points and firewall strength MUST be awarded only for correct, secure configuration. Strength
   MUST NOT be purchasable, random, or granted for time played.
-- A breached firewall ends the round, not the session: the player retries the same round with
-  no penalty. There are no lives, no countdown, and no speed bonus in the first release.
+- A breached firewall ends the wave, not the session: the player retries the same wave with no
+  penalty. Building has no countdown, and there is no speed bonus.
+- The arcade edition MAY show server and uptime bars during a live wave. They reset on every
+  launch and carry nothing from one wave to the next, so they are not lives.
 - Hints and retries carry no penalty. Completed rounds, attempts, and assistance are shown
   separately; completion is not proof of independent mastery.
 - The player chooses a difficulty tier freely and may switch between rounds. No tier is locked
@@ -92,6 +94,9 @@ match the specification.
 - Essential diagrams (topology, attack path) MUST have a text equivalent.
 - Reduced-motion preferences MUST be respected. Animation MUST NOT delay the availability of
   feedback or controls.
+- A live wave MUST be skippable to its result at any moment, and MUST resolve at once when
+  reduced motion is requested.
+- A text edition with every level MUST remain available from the arcade edition.
 - The game MUST remain usable on a typical laptop and in a narrow browser window. Dense data
   such as a rule table may scroll inside its own labeled container without hiding the action
   buttons.
@@ -224,4 +229,4 @@ its effectiveness values are bound by principles I and VI.
 - **Compliance review:** every plan passes the Constitution Check before implementation, and
   `/speckit-analyze` is rerun after any change to the specification, plan, or tasks.
 
-**Version**: 1.1.1 | **Ratified**: 2026-11-17 | **Last Amended**: 2026-11-17
+**Version**: 2.0.0 | **Ratified**: 2026-11-17 | **Last Amended**: 2026-11-17

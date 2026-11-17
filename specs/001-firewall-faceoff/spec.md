@@ -48,6 +48,21 @@ that let the attack through. The session ends when all three levels are complete
   ATT&CK lists no network mitigation. Read from the live pages on 2026-11-17 and recorded in
   "Control effects and their sources". Four technique citations were corrected as a result.
 
+### Session 2026-11-17, redesign
+
+- Q: The first build read as text on a screen. How should the game play? → A: As a full-screen
+  tower defense with live waves, a server bar and an uptime bar. A wave fails the moment an
+  attacker reaches a server, or when three customers are blocked.
+- Q: How are rule tiles placed? → A: Drag and drop, with a keyboard equivalent (Enter adds or
+  removes, Arrow Up and Down reorder). This replaces the earlier "no drag and drop" decision.
+- Q: How much is rebuilt first? → A: Level 1 Standard as a complete slice. The earlier interface
+  stays as a text edition (`classic.html`) with every level and the Expert tier.
+- Arcade edition rules that differ from the requirements below: a level is played as one wave
+  per attack step, each adding that attack, and the final wave contains every flow in the
+  level, so clearing it is exactly the engine's "survived and won". Launching an empty wall is
+  allowed and ends in an outage. Hints are not yet in the arcade edition. Grading, scoring,
+  level data, and the rule engine are unchanged.
+
 ## Who this is for
 
 - **Learner (Standard tier):** network engineers and students who know IP addresses and ports

@@ -2,15 +2,17 @@
 
 **Build a firewall rule base, then watch a penetration test hit your firewall and a rival's, one attack at a time.**
 
-Firewall Security Faceoff is a tower-defense game for network engineers and students. Your rule base is a wall of gates. You build it to meet a business request, then attack packets fly at your wall and at a rival's, and you watch each one get checked gate by gate from the top: the first gate that matches opens or slams shut, and a packet that matches nothing falls to the implicit deny. Every result also names the rule or missing control behind it in plain text. The firewall is vendor-neutral.
+Firewall Security Faceoff is a full-screen tower-defense game for network engineers and students. Your firewall is a wall and every rule is a gate on it. You drag rule tiles onto the wall, launch a wave, and watch customers and attackers fly in and get checked gate by gate from the top. The first gate that matches lets a packet through or bounces it, and anything that matches no gate drops into the implicit deny. Block three customers and you have an outage. Let one attacker reach a server and you are breached. A rival firewall faces the same waves in the corner. The firewall is vendor-neutral.
 
-![The playfield: an attack stopped by threat inspection on your firewall while the rival's is breached](assets/card.png)
+![The arcade edition during a wave](assets/card.png)
+
+**Two editions.** `index.html` is the arcade edition; Level 1 is playable in it now. `classic.html` is the text edition, with all three levels, the Expert tier, hints, and full written explanations. Both use the same rule engine and level data.
 
 A project from **NAF AC6 — Loop Engineering, Spec-Driven Development & the Future of VibeOps**.
 
 | Project | Details |
 | --- | --- |
-| Status | Playable, with an animated tower-defense playfield. 94 automated checks pass; manual checks are recorded in [docs/verification.md](docs/verification.md), including what was not verified |
+| Status | Arcade edition: Level 1 playable. Text edition: all levels playable. 94 automated checks pass; manual checks are recorded in [docs/verification.md](docs/verification.md), including what was not verified |
 | Networking topic | Next-generation firewall policy: rule order, least privilege, application and user identity, inspection, TLS decryption, DNS filtering, segmentation |
 | Typical session | 10 to 15 minutes for the three Standard levels (not yet timed with a first-time player) |
 | Live demo | Not published |

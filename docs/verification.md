@@ -235,3 +235,38 @@ Sound on/off button.
 | Network | pass | Only the game's own 11 files are requested, all at load |
 | No console errors | pass | None across the run |
 | Other browsers, screen reader, human player | not run | |
+
+## Arcade edition redesign (Level 1 slice)
+
+Built on 2026-11-17 after the owner said the game still read as text on a screen. New files:
+`index.html` (replaced), `game/game.js`, `game/game.css`. The earlier interface is kept as
+`classic.html`. The rule engine, level data, and tests were not changed. Constitution amended
+to v2.0.0 to allow per-wave server and uptime bars and to require that a live wave can always
+be skipped.
+
+What it is: the whole screen is the playfield. Rule tiles are dragged from a tray onto a wall.
+Launching a wave sends customers, attackers, and unrequested traffic in live; each is checked
+gate by gate. Three blocked customers is an outage; one attacker reaching a server is a
+breach; either ends the wave and explains which gate decided. A rival's wall faces the same
+wave in an inset. Level 1 has three waves, one per attack step.
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| `node tests/run-node.mjs` | pass | 94 of 94 (engine and text edition; the arcade layer has no automated tests yet) |
+| Mouse drag from tray to wall | pass | R1 and R7 dragged onto the wall in an automated browser |
+| Keyboard-only full level | pass | Placed, reordered, and removed tiles, launched waves, and dismissed every dialog with Enter and arrow keys |
+| Outage path | pass | Wall [R3, R1]: three customers bounced off gate 1; dialog named rule 1 and the unreached rule 2 |
+| Breach path | pass | Wall [R1, R7]: wave 1 cleared, wave 2 breached through gate 2 (TCP 8080) |
+| Victory matches the engine | pass | Wall [R1]: score 40, rival 30. Wall [R4]: score 35 with the port 80 exposure listed and Harden offered |
+| Rival | pass | Rival breached in wave 1 and shown as breached for the rest of the level |
+| Dialogs block the game behind them | pass after a fix | Tiles could first be operated behind an open dialog; the background is now inert |
+| Reduced motion | pass | All three waves resolved and reported in under a second with no animation |
+| Skip to result | not run | Same code path as reduced motion; the button itself was not pressed in a test |
+| 360 px wide | pass | No horizontal or vertical page scroll; Launch stays visible. Tiles are small at this size |
+| Text edition still works | pass | `classic.html` loads and links back |
+| Network | pass | Only the game's own files are requested |
+| Console errors | pass | None |
+| Sound, screen reader, other browsers, touch drag, a human player | not run | |
+
+Not in the arcade edition yet: Levels 2 and 3, the Expert tier, security-control switches on
+tiles, hints, and a per-tier summary. They remain in the text edition.

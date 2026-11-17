@@ -475,3 +475,6 @@ main { max-width: 84rem; }
   .btn:hover:not(:disabled) { transform: none; }
   .confetti { display: none; }
 }
+
+.edition-note { margin: 0.3rem 0 0; font-size: 0.9rem; color: #c9d3e6; }
+.edition-note a { color: #9af0f7; }
