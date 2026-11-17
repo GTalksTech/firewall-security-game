@@ -70,8 +70,12 @@ result are recorded.
   MUST NOT be purchasable, random, or granted for time played.
 - A breached firewall ends the wave, not the session: the player retries the same wave with no
   penalty. Building has no countdown, and there is no speed bonus.
-- The arcade edition MAY show server and uptime bars during a live wave. They reset on every
-  launch and carry nothing from one wave to the next, so they are not lives.
+- The arcade edition is played in real time, by the project owner's decision after three
+  playtests found the turn-based form was not a game. Within one run it has hearts, a patience
+  meter, and a combo multiplier, and traffic does not wait for the player. Nothing carries
+  from one run to the next except the best star count, a failed run restarts the same level
+  at once, and the player can pause at any moment and keep editing. The no-countdown and
+  no-speed-bonus rules above apply to the text edition, which MUST remain available.
 - Hints and retries carry no penalty. Completed rounds, attempts, and assistance are shown
   separately; completion is not proof of independent mastery.
 - The player chooses a difficulty tier freely and may switch between rounds. No tier is locked
@@ -229,4 +233,4 @@ its effectiveness values are bound by principles I and VI.
 - **Compliance review:** every plan passes the Constitution Check before implementation, and
   `/speckit-analyze` is rerun after any change to the specification, plan, or tasks.
 
-**Version**: 2.0.0 | **Ratified**: 2026-11-17 | **Last Amended**: 2026-11-17
+**Version**: 3.0.0 | **Ratified**: 2026-11-17 | **Last Amended**: 2026-11-17

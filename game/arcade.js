@@ -135,6 +135,7 @@ function tileEl(ruleId, inWall, index) {
   const how = inWall ? `Arrow Up or Down moves it. Enter removes it. ${keys}` : 'Enter adds it to the bottom of your wall.';
   const badge = inWall && st.leak ? el('span', { class: 'tile-badge badge-bad' }, `LEAK ×${st.leak}`)
     : inWall && st.block ? el('span', { class: 'tile-badge badge-bad' }, `BLOCKS ${state.cfg.friend} ×${st.block}`)
+    : inWall && st.unscanned ? el('span', { class: 'tile-badge badge-warn' }, `SWITCH ON ${(st.need || []).map((n) => CONTROL_SHORT[n]).join(' + ') || 'SCAN'}`)
     : inWall && st.expose ? el('span', { class: 'tile-badge badge-warn' }, 'TOO WIDE')
     : null;
   const tile = el('button', {
@@ -389,7 +390,7 @@ function snapshot(p, ruleBase, gateYs) {
 function packetPos(p, g, t) {
   const ys = p.snap ? p.snap.gateYs : g.gateYs;
   const n = ys.length;
-  const lag = (p.index % 3) * 15 * (g.px / 4); // fan packets out so they do not stack
+  const lag = (p.index % 4) * 20 * (g.px / 4); // fan packets out so they do not stack
   const faceX = p.outbound ? g.wallRight + 22 + lag : g.wallLeft - 22 - lag;
   const farX = p.outbound ? g.wallLeft - 22 : g.wallRight + 22;
   const host = g.hosts[p.outbound ? p.flow.srcAddress : p.flow.dstAddress] || Object.values(g.hosts)[0];
@@ -538,10 +539,17 @@ function onArrival(p, pos) {
   } else {
     state.exposed.add(p.flow.id);
     state.score = Math.max(0, state.score - 5);
-    pop('NOT NEEDED  -5', COLOR.warn, pos.x, pos.y);
+    const fix = leakFix(p.flow, v, rule);
+    pop(fix.length > 0 ? 'NOT SCANNED  -5' : 'NOT NEEDED  -5', COLOR.warn, pos.x, pos.y);
     SFX.expose();
-    stat(p.snap.ruleId, 'expose');
-    logLine(`Exposure: unneeded traffic (${what}) got through gate ${n}.`, 'warn');
+    if (fix.length > 0) {
+      (state.stats[p.snap.ruleId] = state.stats[p.snap.ruleId] || {}).need = fix;
+      stat(p.snap.ruleId, 'unscanned');
+      coach(leakHint(state.challenge, p.flow, v, rule, n), 6);
+    } else {
+      stat(p.snap.ruleId, 'expose');
+    }
+    logLine(`Exposure: ${fix.length > 0 ? 'unscanned' : 'unneeded'} traffic (${what}) got through gate ${n}.`, 'warn');
   }
 }
 
@@ -834,7 +842,11 @@ function drawPackets(list, g, labels) {
     if (!pos || pos.alpha <= 0) continue;
     const bob = !p.snap ? Math.sin(state.t * 9 + p.index) * 3 : 0;
     sprite(SPRITES[p.kind], pos.x, pos.y + bob, g.px, packetColor(p.kind), pos.alpha);
-    if (labels && pos.alpha > 0.5) {
+    // Labels are for reading on the way in; they fade as the packet joins the queue at the wall.
+    const near = (state.t - p.spawn) / T_APPROACH;
+    const fade = p.snap ? 0 : Math.max(0, Math.min(1, (0.92 - near) / 0.2));
+    if (labels && pos.alpha > 0.5 && flowLabel(state.challenge, p.flow).locked) sprite(SPRITES.lock, pos.x + 22, pos.y + bob + 2, 2, COLOR.warn, pos.alpha);
+    if (labels && pos.alpha > 0.5 && fade > 0) {
       const l = flowLabel(state.challenge, p.flow);
       const color = packetColor(p.kind);
       const main = l.payload ? `${l.main} +${l.payload}` : l.main;
@@ -844,10 +856,11 @@ function drawPackets(list, g, labels) {
       const lx = Math.max(half, Math.min(g.w - half, pos.x));
       const below = p.index % 2 === 1; // alternate above and below so neighbours do not stack
       const ly = pos.y + bob + (below ? 26 : -24);
-      ctx.globalAlpha = 0.72; rect(lx - half, ly - (l.who && !below ? 25 : 9), half * 2, l.who ? 34 : 18, COLOR.bg); ctx.globalAlpha = 1;
+      ctx.globalAlpha = 0.72 * fade; rect(lx - half, ly - (l.who && !below ? 25 : 9), half * 2, l.who ? 34 : 18, COLOR.bg);
+      ctx.globalAlpha = fade;
       text(main, lx, ly, color, big, 'center');
       if (l.who) text(l.who, lx, ly + (below ? 16 : -16), color, FONT, 'center');
-      if (l.locked) sprite(SPRITES.lock, pos.x + 22, pos.y + bob + 2, 2, COLOR.warn, pos.alpha);
+      ctx.globalAlpha = 1;
     }
   }
 }

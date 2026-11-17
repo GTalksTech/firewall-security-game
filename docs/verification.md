@@ -351,3 +351,23 @@ Problems seen in screenshots at 1280x800 and 390 wide, and what changed:
 | All three levels won with three stars at 6x speed, 1280x800, automated browser | Pass, no console errors |
 | Level 2 with DECRYPT left off: the DECRYPT switch is flagged after the first malware hit | Pass |
 | 390 wide: HUD, wall, hosts, rival and tray all on screen; no sideways page scroll | Pass by screenshot. It is tight: packet labels still crowd each other at the top of the wall. |
+
+### Loop 3
+
+- Packets all queue at the top gate, and their labels piled up there. Labels now fade as a packet reaches the wall (they are readable on the way in), the queue is spread wider, and the lock mark stays on.
+- A trusted session carrying an exploit that got through an unscanned gate badged the gate "TOO WIDE", which pointed at the wrong fix. It now reads "SWITCH ON SCAN", flags the switch, and the prompt says the same.
+
+| Check | Result |
+|---|---|
+| `node tests/run-node.mjs` | Pass: 139 tests |
+| All three levels won with three stars, by mouse, 6x speed, 1280x800 | Pass, no console errors |
+| Level 1 won with three stars by keyboard only (Enter, arrow keys), 3x speed | Pass |
+| Level 3 without SCAN: badge reads "SWITCH ON SCAN" and the SCAN switch is flagged | Pass |
+| One combined test script timed out at 6x speed | Cause: the script fell behind the game clock and missed an order, so the run ended in an outage. Rerun in parts at 3x: pass. Not a game fault. |
+
+### Still not verified after the three loops
+
+- No person has played the finished game. Whether Levels 2 and 3 are fun, fair, or too fast is unknown.
+- Sound, touch dragging, a screen reader, and any browser other than automated Chromium.
+- Reduced motion in the arcade edition: decorative CSS animation is switched off, but the game itself is motion.
+- `/speckit-analyze` was not rerun after the constitution moved to 3.0.0 and `specs/002-arcade-edition/spec.md` was added.

@@ -1,40 +1,32 @@
 # Firewall Security Faceoff
 
-**Build a firewall rule base, then watch a penetration test hit your firewall and a rival's, one attack at a time.**
+**Drag firewall rules onto your wall while the traffic is already flying at it. Let the right packets in, keep the rest out, and outlast the rival firewall.**
 
-Firewall Security Faceoff is a real-time tower-defense game for network engineers and students. Your firewall is a wall and every rule is a gate on it. Customers, attackers, and traffic nobody asked for fly at the wall without stopping, and each packet is checked from the top gate down: the first gate that matches lets it in or bounces it, and anything that matches no gate drops into the implicit deny. You drag gates on and off the wall while the traffic is flowing. New business orders arrive mid-run, each new attack punishes a lazy answer to the last order, and a rival firewall faces the same traffic in the corner. You have five server hearts, a customer-patience meter, a combo multiplier, and up to three stars to earn. The firewall is vendor-neutral.
+Firewall Security Faceoff is a real-time tower-defense game for network engineers and students. Your firewall is a wall and every rule is a gate on it. Wanted traffic, attacks, and traffic nobody asked for fly at the wall without stopping. Each packet is checked from the top gate down: the first gate that matches lets it through or bounces it, and anything that matches no gate drops into the implicit deny. You add, remove and reorder gates while the traffic is flowing. New business orders arrive mid-run, each new attack wave punishes a lazy answer to the last order, and a rival firewall faces the same traffic in the corner. The firewall is vendor-neutral.
 
-![The arcade edition during a wave](assets/card.png)
+![Level 2 of the arcade edition: a malware download has just got through a gate whose DECRYPT switch is off](assets/card.png)
 
-**Two editions.** `index.html` is the arcade edition; Level 1 is playable in it now. `classic.html` is the text edition, with all three levels, the Expert tier, hints, and full written explanations. Both use the same rule engine and level data.
+| Level | What you defend | What it teaches |
+| --- | --- | --- |
+| 1. Open the storefront | A web, mail and jump server facing the Internet | First match wins, implicit deny, least privilege, why a blocklist gate must sit above the gate it guards |
+| 2. Let staff browse safely | An office browsing the Internet | Application gates instead of port gates, SCAN, why SCAN needs DECRYPT for locked traffic, DNS FILTER |
+| 3. Clean up the data center | A database and an application server | Gates that name who is allowed, stopping a break-in from spreading, scanning traffic you trust |
+
+**How to play.** Drag a gate from the tray onto the wall, or click it. Drag it up or down to reorder, and off the wall to remove it. Gates marked **TRY** would let in wanted traffic that is being turned away. On Levels 2 and 3 a gate has switches under it; click one to turn it on. When something gets through, the gate that let it in is badged and, if a switch would have stopped it, that switch flashes. P pauses, and you can still change the wall while paused. Keyboard: Tab to a gate, Enter adds or removes it, the arrow keys move it, and S, D and F flip its switches.
+
+You have five hearts, a patience meter for the people you are meant to be serving, a combo multiplier, and one to three stars per level. Three stars needs a run with nothing wrongly let in or turned away, and a final wall the rule engine agrees is correct.
+
+**Two editions.** `index.html` is the arcade edition described above. `classic.html` is the earlier text edition: no motion, no clock, both difficulty tiers, hints, and full written explanations. Both use the same rule engine and level data.
 
 A project from **NAF AC6 — Loop Engineering, Spec-Driven Development & the Future of VibeOps**.
 
 | Project | Details |
 | --- | --- |
-| Status | Arcade edition: Level 1 playable. Text edition: all levels playable. 94 automated checks pass; manual checks are recorded in [docs/verification.md](docs/verification.md), including what was not verified |
+| Status | All three levels playable in both editions. 139 automated checks pass; browser checks are recorded in [docs/verification.md](docs/verification.md), including what was not verified |
 | Networking topic | Next-generation firewall policy: rule order, least privilege, application and user identity, inspection, TLS decryption, DNS filtering, segmentation |
-| Typical session | 10 to 15 minutes for the three Standard levels (not yet timed with a first-time player) |
+| Typical session | About 2 minutes per level per attempt (not yet timed with a first-time player) |
 | Live demo | Not published |
 | Built by | GTalksTech |
-
-## The challenge
-
-Level 1 asks: "Customers on the Internet must reach the web server WEB-1 (203.0.113.10) on HTTPS, TCP 443. Nothing else may enter the DMZ." You pick rules from a list and put them in order. If you place "Deny Internet to the DMZ, anything" above "Allow Internet to WEB-1 on TCP 443", the game reports an outage: rule 1 is the first match, so rule 2 is never reached. Remove the deny, run the test again, and all three attacks are stopped by the implicit deny while the rival falls at step 1 through its open SSH rule.
-
-A level is completed only when required traffic still works **and** every attack step is stopped. Outlasting the rival while still being breached does not count, and blocking everything is an outage, not a defense.
-
-## What you'll learn
-
-| By the end, you can… | You'll practice by… |
-| --- | --- |
-| Order rules so first-match evaluation and implicit deny give least-privilege access | Building a rule base for one public service |
-| Choose application-aware rules and the controls that make inspection effective | Allowing staff web browsing and stopping a tunnel, a malware download, and a malicious DNS lookup |
-| Find shadowed and over-broad rules in an inherited rule base and predict what removing them does | Repairing a data-center rule base against a four-step intrusion |
-
-Each level exists at two tiers. **Standard** builds a rule base from rule cards. **Expert** hands you a larger inherited rule base to repair. You can switch tier at any time; progress is kept separately for each.
-
-**Before playing:** you should know what IP addresses and TCP/UDP ports are. Each briefing teaches the rest.
 
 ## Play locally
 
@@ -54,12 +46,12 @@ Open **http://127.0.0.1:8000** in a current desktop browser. Keep the terminal r
 
 ## How it works
 
-- **The playfield:** a pixel-style animation of each attack reaching both walls. It only illustrates results that are already computed and written as text below it; Show Full Results skips it, and with reduced motion requested it shows the final frame at once. Sound effects are synthesized in the browser and can be switched off with the Sound button.
-- **Scoring:** 10 points for each attack step stopped, 5 for each piece of traffic the request did not ask for that your rule base denies. Points are banked only when the level is completed. Your firewall strength is the total of your banked scores, shown beside the rival's.
-- **Harden Further:** after completing a level with exposure left, you can improve it. Only your best result counts; scores are never added together.
-- **No penalties:** there is no timer, no lives, and no cost for retries or hints. Hints go method, one worked step, then a worked solution, and their use is shown separately from completion.
-- **Every input is a button, checkbox, or radio.** There is no text entry and no drag and drop; rules are reordered with Move Up and Move Down.
-- **Progress lasts for the page session.** Reloading starts again.
+- **Every verdict comes from one rule engine** (`engine/rules.js`). The arcade edition asks it about each packet at the moment the packet reaches the wall, against the wall as it stands right then. The animation decides nothing.
+- **The traffic is a fixed timetable**, built from the level data: a short warm-up of wanted traffic only, then one wave per attack step. The same play always meets the same traffic.
+- **Orders:** each level starts with one business order and adds more mid-run. Traffic for a new order gets a few seconds' grace before turning it away costs patience.
+- **Score:** points for each wanted packet served and each attack stopped, multiplied by a combo that resets when something goes wrong. Stars are saved in the browser.
+- **The arcade levels use each level's harder challenge.** The text edition offers both tiers.
+- **No text entry anywhere.** Sound effects are synthesized in the browser and can be switched off.
 
 ## What the game simplifies
 
@@ -84,32 +76,36 @@ node tests/run-node.mjs
 
 In the browser, with the server above running, open **http://127.0.0.1:8000/tests/**.
 
-Both run the same 94 checks: the 33 hand-worked rule-base cases from the specification, content validation, and session behavior. Expected results in `tests/cases.js` are copied from the specification and are never computed by the engine under test.
+Both run the same 139 checks: the 33 hand-worked rule-base cases from the specification, content validation, session behavior, and the arcade timetable, labels, hints and star rules. Expected results in `tests/cases.js` are copied from the specification and are never computed by the engine under test.
 
 ## Project layout
 
 ```text
-index.html, style.css, main.js   Page shell, styles, load and start
+index.html                       Arcade edition shell
+game/arcade.js, game/game.css    Arcade edition: drawing, input, the real-time loop
+game/logic.js                    Arcade timetable, labels, hints, stars (no screen; tested)
+classic.html, style.css, main.js Text edition shell, styles, start
+ui/                              Text edition views, controls, and its playfield
 engine/rules.js                  Pure rule evaluation, outcome, and score
 engine/content.js                Validates the level data before play
-engine/state.js                  Session state: attempts, hints, banking, tiers
+engine/state.js                  Text edition session state
 engine/feedback.js               Turns results into explanations
-ui/render.js, ui/controls.js     Views, events, focus, announcements
-ui/playfield.js                  The tower-defense canvas animation and sound
-data/levels.json                 All level content, rivals, hints, and sources
+data/levels.json                 All level content, rivals, hints, sources, arcade settings
 tests/                           Test harness, cases, and both runners
 docs/verification.md             What was checked, and what was not
-specs/001-firewall-faceoff/      Specification, plan, and tasks
+specs/                           Specifications, plan, and tasks
 ```
 
-To add or change a level, edit `data/levels.json` and add its hand-worked cases to `tests/cases.js`. No engine or interface code changes.
+To add or change a level, edit `data/levels.json` and add its hand-worked cases to `tests/cases.js`. No engine or interface code changes. Adding `?speed=4` to the address runs the arcade clock faster; it is a testing aid.
 
 ## Known limits
 
-- Tested in one browser engine (Chromium). Not tested with a screen reader.
+- Tested in one browser engine (Chromium), driven by an automated browser. No person has play-tested the finished three levels, so difficulty and pacing are untuned.
+- Not tested with a screen reader. The arcade edition is real time; a player who cannot use it has the text edition, which has no clock.
 - Sound effects were not listened to during testing; only the toggle was checked.
-- The player does not act during the penetration test. It is a tower defense in which all the play is in building the wall.
-- The live turn-by-turn battle mode from the original idea is deferred and not built.
+- Touch dragging was not tested. Phone width (390) fits on screen but is tight.
+- The arcade edition has no hint ladder; its help is the TRY marks, gate badges, and one-line prompts.
+- The turn-by-turn battle mode from the original idea is not built.
 - See [docs/verification.md](docs/verification.md) for the full list of checks that were not run.
 
 ## License
