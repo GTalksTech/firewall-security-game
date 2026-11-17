@@ -18,14 +18,14 @@ game:
   license: Apache-2.0
 
 creator:
-  name: ""                   # (HUMAN) not yet provided
+  name: "Garrett Masters"
   github: "GTalksTech"
   location: ""
   organization: ""
   links: []
-  first_spec_project: true   # (HUMAN) template default; not yet confirmed
+  first_spec_project: true
   workshop: "NAF AC6"
-  consent_to_publish: false  # (HUMAN) not yet given; nothing is listed until this is true
+  consent_to_publish: true
 
 build:
   started: "2026-11-17"
