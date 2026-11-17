@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Firewall Security Faceoff · Tests</title>
+  <link rel="icon" href="data:,">
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; line-height: 1.5; }
+    .pass { color: #116329; }
+    .fail { color: #a40e26; }
+    li { margin-bottom: 0.5rem; }
+    code { white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>Firewall Security Faceoff · Tests</h1>
+  <p id="summary" role="status">Running tests…</p>
+  <ul id="failures"></ul>
+  <script type="module">
+    import { runSuites, SUITES } from './harness.js';
+
+    const summary = document.getElementById('summary');
+    const failures = document.getElementById('failures');
+
+    let content = null;
+    try {
+      const response = await fetch('../data/levels.json');
+      content = await response.json();
+    } catch (err) {
+      // Suites report the missing content as failures.
+    }
+
+    const result = await runSuites(SUITES, (name) => import(`./${name}`), content);
+    const ok = result.failed.length === 0 && result.total > 0;
+    summary.textContent =
+      `Tests run: ${result.total}. Passed: ${result.passed}. Failed: ${result.failed.length}. ` +
+      (ok ? 'All passed.' : 'FAILED.');
+    summary.className = ok ? 'pass' : 'fail';
+    for (const f of result.failed) {
+      const li = document.createElement('li');
+      li.className = 'fail';
+      const name = document.createElement('strong');
+      name.textContent = f.name;
+      const msg = document.createElement('code');
+      msg.textContent = ' ' + f.message;
+      li.append(name, document.createElement('br'), msg);
+      failures.append(li);
+    }
+  </script>
+</body>
+</html>

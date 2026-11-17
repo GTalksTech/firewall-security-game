@@ -1,50 +1,42 @@
-> **For the attendee — remove this block before publishing.**
-> Copy this file to **`README.md` in the root of your own game repository**.
-> Replace every `[BRACKETED PLACEHOLDER]`. Keep the status honest: a plan is not
-> an implementation, and an unrun check is not a pass. Delete sections you don't
-> use. Add a screenshot or live link only after the file/site exists.
+# Firewall Security Faceoff
 
-# [GAME NAME]
+**Build a firewall rule base, then watch a penetration test hit your firewall and a rival's, one attack at a time.**
 
-**[A SHORT, MEMORABLE LINE ABOUT THE PLAYER'S ACTION AND THE SKILL IT TEACHES].**
+Firewall Security Faceoff is a tower-defense game for network engineers and students. Your rule base is a wall of gates. You build it to meet a business request, then attack packets fly at your wall and at a rival's, and you watch each one get checked gate by gate from the top: the first gate that matches opens or slams shut, and a packet that matches nothing falls to the implicit deny. Every result also names the rule or missing control behind it in plain text. The firewall is vendor-neutral.
 
-[GAME NAME] is a browser game for [TARGET LEARNER]. You play as [ROLE], making [CORE DECISION] to [VISIBLE GOAL]. Each round explains the result so you can use what you learned on the next challenge.
+![The playfield: an attack stopped by threat inspection on your firewall while the rival's is breached](assets/card.png)
 
 A project from **NAF AC6 — Loop Engineering, Spec-Driven Development & the Future of VibeOps**.
 
 | Project | Details |
 | --- | --- |
-| Status | Planning — update to prototype/playable/verified only when accurate |
-| Networking topic | [TOPIC AND TECHNICAL CONTEXT] |
-| Typical session | [EXPECTED PLAY TIME] |
-| Live demo | Not published yet |
-| Built by | [NAME(S) / GITHUB HANDLE(S)] |
-
-<!-- Optional after implementation: add ![Describe the game screen](docs/gameplay.png)
-     only after committing a real screenshot at that path. Replace the demo text
-     above with a working Markdown link after testing the deployed game. -->
+| Status | Playable, with an animated tower-defense playfield. 94 automated checks pass; manual checks are recorded in [docs/verification.md](docs/verification.md), including what was not verified |
+| Networking topic | Next-generation firewall policy: rule order, least privilege, application and user identity, inspection, TLS decryption, DNS filtering, segmentation |
+| Typical session | 10 to 15 minutes for the three Standard levels (not yet timed with a first-time player) |
+| Live demo | Not published |
+| Built by | GTalksTech |
 
 ## The challenge
 
-[DESCRIBE ONE ROUND IN TWO OR THREE SENTENCES USING REAL NETWORK VALUES. SAY WHAT THE PLAYER SEES, WHAT THEY DECIDE, AND WHAT THE GAME SHOWS AFTER THE DECISION].
+Level 1 asks: "Customers on the Internet must reach the web server WEB-1 (203.0.113.10) on HTTPS, TCP 443. Nothing else may enter the DMZ." You pick rules from a list and put them in order. If you place "Deny Internet to the DMZ, anything" above "Allow Internet to WEB-1 on TCP 443", the game reports an outage: rule 1 is the first match, so rule 2 is never reached. Remove the deny, run the test again, and all three attacks are stopped by the implicit deny while the rival falls at step 1 through its open SSH rule.
 
-For example, a routing game might ask you to inspect a destination and several routes, choose an exit, then explain the matching prefix. Replace this example with your game's actual experience.
+A level is completed only when required traffic still works **and** every attack step is stopped. Outlasting the rival while still being breached does not count, and blocking everything is an outage, not a defense.
 
 ## What you'll learn
 
 | By the end, you can… | You'll practice by… |
 | --- | --- |
-| [OBSERVABLE SKILL 1] | [PLAYER ACTION 1] |
-| [OBSERVABLE SKILL 2] | [PLAYER ACTION 2] |
-| [OBSERVABLE SKILL 3] | [PLAYER ACTION 3] |
+| Order rules so first-match evaluation and implicit deny give least-privilege access | Building a rule base for one public service |
+| Choose application-aware rules and the controls that make inspection effective | Allowing staff web browsing and stopping a tunnel, a malware download, and a malicious DNS lookup |
+| Find shadowed and over-broad rules in an inherited rule base and predict what removing them does | Repairing a data-center rule base against a four-step intrusion |
 
-**Before playing:** [PRIOR KNOWLEDGE, OR “NO PRIOR KNOWLEDGE; THE FIRST BRIEFING TEACHES THE BASICS”].
+Each level exists at two tiers. **Standard** builds a rule base from rule cards. **Expert** hands you a larger inherited rule base to repair. You can switch tier at any time; progress is kept separately for each.
+
+**Before playing:** you should know what IP addresses and TCP/UDP ports are. Each briefing teaches the rest.
 
 ## Play locally
 
-These instructions apply after the game has been implemented and `index.html` exists. Download this repository or clone it using the URL from GitHub's **Code** button, then open a terminal in the project root.
-
-For the starter plan's static HTML/CSS/JavaScript build:
+There is nothing to install. From the repository root:
 
 ```sh
 python3 -m http.server 8000 --bind 127.0.0.1
@@ -56,75 +48,68 @@ On Windows with the Python launcher:
 py -m http.server 8000 --bind 127.0.0.1
 ```
 
-Open **http://127.0.0.1:8000** in your browser. Keep the terminal running; **Ctrl+C** stops the server. If port 8000 is busy, use 8001 in both the command and URL.
+Open **http://127.0.0.1:8000** in a current desktop browser. Keep the terminal running; **Ctrl+C** stops the server. If port 8000 is busy, use 8001 in both the command and the URL. Opening `index.html` directly with `file://` is not supported, because the game loads its modules and level data over HTTP.
 
-The starter build loads JavaScript modules and JSON over HTTP. Use the server URL to preview it. If you chose a different stack, replace these instructions with the commands you actually tested. [Why modules need serving](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules).
+## How it works
 
-## How to play
+- **The playfield:** a pixel-style animation of each attack reaching both walls. It only illustrates results that are already computed and written as text below it; Show Full Results skips it, and with reduced motion requested it shows the final frame at once. Sound effects are synthesized in the browser and can be switched off with the Sound button.
+- **Scoring:** 10 points for each attack step stopped, 5 for each piece of traffic the request did not ask for that your rule base denies. Points are banked only when the level is completed. Your firewall strength is the total of your banked scores, shown beside the rival's.
+- **Harden Further:** after completing a level with exposure left, you can improve it. Only your best result counts; scores are never added together.
+- **No penalties:** there is no timer, no lives, and no cost for retries or hints. Hints go method, one worked step, then a worked solution, and their use is shown separately from completion.
+- **Every input is a button, checkbox, or radio.** There is no text entry and no drag and drop; rules are reordered with Move Up and Move Down.
+- **Progress lasts for the page session.** Reloading starts again.
 
-1. Read the briefing and inspect [THE CHALLENGE DATA].
-2. [MAKE THE CORE CHOICE] and submit it.
-3. Read the explanation. A wrong answer lets you retry; a correct answer enables Next.
-4. Use a hint or worked solution when you need help. Assistance is recorded separately from completion.
-5. Finish [NUMBER OF LEVELS/ROUNDS] to reach the session summary.
+## What the game simplifies
 
-| Control | Action |
-| --- | --- |
-| [ACTUAL POINTER CONTROL] | [ACTION] |
-| [ACTUAL KEYBOARD CONTROL] | [ACTION] |
-| Hint / solution | [ACTUAL HELP BEHAVIOR] |
-| Restart | [ACTUAL RESET AND CONFIRMATION BEHAVIOR] |
+Each briefing states the simplifications that matter for that level. The main ones:
 
-**Progress:** [WHAT IS COUNTED, WHEN A ROUND COMPLETES, AND WHAT HAPPENS ON RELOAD].
+- The game models a firewall that checks rules in order and stops at the first match. NIST SP 800-41 notes that many firewalls work this way and others do not.
+- A control that the sources say "can mitigate" an attack always stops it here.
+- The firewall identifies every application and user correctly and immediately.
+- Addresses match exactly; there is no subnet matching.
+- Not modeled: address translation, routing, VPN, high availability, IPv6, logging, URL filtering, DNS over HTTPS, and decryption exemptions.
+- Attacks are named techniques evaluated against the model. The game sends no network traffic and contains no exploit code.
 
-## What this game models
+Sources are listed in each briefing and in `data/levels.json`: NIST SP 800-41 Rev. 1, NIST SP 800-207, and MITRE ATT&CK technique and mitigation pages.
 
-[STATE THE PRECISE TECHNICAL MODEL AND TWO OR THREE IMPORTANT ASSUMPTIONS].
+## Run the checks
 
-**Outside the model:** [ADJACENT BEHAVIOR THE GAME DOES NOT SIMULATE].
+Command line (needs Node 20 or later; used for tests only, not to play):
 
-| Reference | What it supports |
-| --- | --- |
-| [AUTHORITATIVE TITLE, URL, AND SECTION] | [SPECIFIC RULE OR CLAIM] |
+```sh
+node tests/run-node.mjs
+```
 
-## How it was built
+In the browser, with the server above running, open **http://127.0.0.1:8000/tests/**.
 
-The project follows the workshop's Spec Kit workflow: **constitution → specify → clarify → plan → tasks → analyze → implement**. The verification section below records which behaviors have actually been checked.
+Both run the same 94 checks: the 33 hand-worked rule-base cases from the specification, content validation, and session behavior. Expected results in `tests/cases.js` are copied from the specification and are never computed by the engine under test.
 
-- **Stack:** [ACTUAL LANGUAGES/LIBRARIES].
-- **Build tools:** [CODING AGENT / SPEC KIT VERSION / OPTIONAL TOOLS ACTUALLY USED].
-- **Runtime:** [WHAT A PLAYER'S BROWSER NEEDS; DEFAULT IS STATIC FILES WITH NO MODEL OR API KEY].
-- **Planning inputs:** `StarterKit/CONSTITUTION.md`, `StarterKit/SPEC.md`, `StarterKit/PLAN.md`.
-- **Working artifacts:** [ACTUAL GENERATED CONSTITUTION, SPEC, PLAN, AND TASK PATHS].
-- **One useful design decision:** [A CONCRETE QUESTION OR ANALYSIS FINDING THAT CHANGED THE BUILD].
+## Project layout
 
-## Verification
+```text
+index.html, style.css, main.js   Page shell, styles, load and start
+engine/rules.js                  Pure rule evaluation, outcome, and score
+engine/content.js                Validates the level data before play
+engine/state.js                  Session state: attempts, hints, banking, tiers
+engine/feedback.js               Turns results into explanations
+ui/render.js, ui/controls.js     Views, events, focus, announcements
+ui/playfield.js                  The tower-defense canvas animation and sound
+data/levels.json                 All level content, rivals, hints, and sources
+tests/                           Test harness, cases, and both runners
+docs/verification.md             What was checked, and what was not
+specs/001-firewall-faceoff/      Specification, plan, and tasks
+```
 
-**Last checked:** [DATE, BROWSER/OS, AND COMMIT OR BUILD IDENTIFIER].
+To add or change a level, edit `data/levels.json` and add its hand-worked cases to `tests/cases.js`. No engine or interface code changes.
 
-For the starter plan, run the local server and open **http://127.0.0.1:8000/tests/** after the agent has implemented the test runner. Replace this instruction if your project uses a different test command. Record test totals and failures; an empty test suite is not success.
+## Known limits
 
-| Check | Result | Evidence / notes |
-| --- | --- | --- |
-| Correct, incorrect, and boundary cases | Not run | [CASE IDS AND RESULT OR FAILURE] |
-| Briefings and explanations checked against sources | Not run | [REVIEWER / REFERENCE NOTES] |
-| Retry, hint, duplicate Submit, completion, restart | Not run | [OBSERVED BEHAVIOR] |
-| Keyboard-only core playthrough | Not run | [BROWSER / OBSERVATIONS] |
-| Narrow layout and reduced motion | Not run | [VIEWPORT / OBSERVATIONS] |
-| Fresh checkout run instructions | Not run | [COMMAND / RESULT] |
-| Published demo, if used | Not run | [URL / RESULT, OR REMOVE ROW] |
+- Tested in one browser engine (Chromium). Not tested with a screen reader.
+- Sound effects were not listened to during testing; only the toggle was checked.
+- The player does not act during the penetration test. It is a tower defense in which all the play is in building the wall.
+- The live turn-by-turn battle mode from the original idea is deferred and not built.
+- See [docs/verification.md](docs/verification.md) for the full list of checks that were not run.
 
-## Known limitations and next steps
+## License
 
-- **Known limitation:** [SPECIFIC UNIMPLEMENTED OR IMPERFECT BEHAVIOR].
-- **Next improvement:** [ONE SMALL CHANGE AND WHY IT HELPS LEARNING].
-
-Found an incorrect answer or unclear explanation? Open an issue with the level/round, input values, your choice, expected result, actual result, and a reference if available.
-
-## Credits
-
-Created by [AUTHORS]. Workshop by John Capobianco, Joksan Flores, and Elliot Conner. Adapted from the [NAF AC6 workshop materials](https://github.com/automateyournetwork/NAF_AC6) and [Networking Video Game Starter Kit](https://github.com/automateyournetwork/NetworkingVideoGameStarterKit), using [GitHub Spec Kit](https://github.com/github/spec-kit).
-
-**Assets and dependencies:** [CREDIT THE ACTUAL SOURCES, OR STATE THAT THE GAME USES ONLY ORIGINAL ASSETS].
-
-**License:** [NAME THE LICENSE INCLUDED IN THIS REPOSITORY; ADD A LINK TO THE ACTUAL FILE].
+See [LICENSE](LICENSE).

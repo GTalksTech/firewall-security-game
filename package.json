@@ -1,0 +1,8 @@
+{
+  "name": "firewall-security-faceoff",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tests/run-node.mjs"
+  }
+}

@@ -1,0 +1,12 @@
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+*.log
+.env*
+node_modules/
+__pycache__/
+*.pyc
+.vscode/
+.idea/
+.playwright-mcp/
