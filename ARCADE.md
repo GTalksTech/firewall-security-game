@@ -12,7 +12,7 @@ game:
   play_minutes: 15
   levels: 3
   card_image: assets/card.png
-  card_image_alt: "A 3D hex map with a stone wall down the middle. Wagons and raiders approach from the left under banners reading GETS IN, BLOCKED and WILL BREACH; city districts stand on the right; a side panel lists the firewall rules as numbered gates."
+  card_image_alt: "A 3D hex map with mountains, fields and a battlemented wall. Wagons and raiders approach the gatehouse under banners reading GETS IN, BLOCKED and WILL BREACH; one raider is being traced with a dotted route to a server; a side panel lists the firewall rules as numbered gates and marks the one that decides."
   repo: https://github.com/GTalksTech/firewall-security-game
   repo_path: ""
   license: Apache-2.0
@@ -36,7 +36,7 @@ build:
     framework_version: "1.4.2.dev0"
     artifacts: [constitution, spec, clarify, plan, tasks, analyze, checklists]
     task_count: 68
-    loops_or_phases: 6   # two Ralph runs of three iterations each, on earlier versions
+    loops_or_phases: 9   # three Ralph runs of three iterations each
   model: "claude-fable-5-2"
   helper_models: []
   harness: Claude Code
@@ -49,7 +49,7 @@ build:
     - "NAF AC6 workshop StarterKit (CONSTITUTION.md, SPEC.md, PLAN.md) and LAB README"
   skills_and_plugins: [speckit-constitution, speckit-specify, speckit-clarify, speckit-plan, speckit-tasks, speckit-analyze, speckit-implement, ralph-loop plugin]
   other_tools: [three.js r160 (MIT) for the 3D map, Node.js 26 for the test runner, Python http.server, Chromium via Playwright, curl, GitHub CLI]
-  human_prompts: 23
+  human_prompts: 24
   usage:
     input_tokens: unknown
     output_tokens: unknown
@@ -73,7 +73,7 @@ runtime:
 
 verification:
   tests: "node tests/run-node.mjs"
-  tests_passing: 164
+  tests_passing: 167
   facts_sourced_from:
     - "NIST SP 800-41 Rev. 1, sections 2.1.2, 2.1.3, 2.3, 4, 4.1.1, 4.2, 4.3, 5.2.2"
     - "NIST SP 800-207, section 2.1"

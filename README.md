@@ -2,7 +2,7 @@
 
 **A turn-based strategy game about firewall rules. Your network is a city on a hex map, your firewall is its gatehouse, and every rule is a gate. Let the right traffic in, turn the rest away, and outlast the rival.**
 
-![Level 2: an attack carrying malware is three turns from the gatehouse, and the advisor says which switch would stop it](assets/card.png)
+![Level 1: a raider from a known-bad address is being traced to the web server, and the advisor says which gate would stop it](assets/card.png)
 
 Firewall Security Faceoff is for network engineers and students. Traffic marches across a 3D hex map toward your gatehouse: wagons are wanted traffic, raiders are attacks, drifters are traffic nobody asked for. Every unit carries a banner saying what it is and what your gates, as they stand right now, will do with it. Each turn you make up to three changes to your gates, then end the turn and everything moves one step. Gates are checked from the top down, the first match decides, and anything no gate allows is turned away. The firewall is vendor-neutral.
 
@@ -22,7 +22,7 @@ A project from **NAF AC6 — Loop Engineering, Spec-Driven Development & the Fut
 
 | Project | Details |
 | --- | --- |
-| Status | All three levels playable in all three versions. 164 automated checks pass; browser checks are recorded in [docs/verification.md](docs/verification.md), including what was not verified |
+| Status | All three levels playable in all three versions. 167 automated checks pass; browser checks are recorded in [docs/verification.md](docs/verification.md), including what was not verified |
 | Networking topic | Next-generation firewall policy: rule order, least privilege, application and user identity, inspection, TLS decryption, DNS filtering, segmentation |
 | Typical session | 15 to 18 turns per level (not yet timed with a first-time player) |
 | Live demo | Not published |
@@ -75,7 +75,7 @@ node tests/run-node.mjs
 
 In the browser, with the server above running, open **http://127.0.0.1:8000/tests/**.
 
-Both run the same 164 checks: the 33 hand-worked rule-base cases from the specification, content validation, session behavior, the arcade timetable, labels, hints and star rules, and the strategy game's turn rules. Expected results in `tests/cases.js` are copied from the specification and are never computed by the engine under test.
+Both run the same 167 checks: the 33 hand-worked rule-base cases from the specification, content validation, session behavior, the arcade timetable, labels, hints and star rules, and the strategy game's turn rules. Expected results in `tests/cases.js` are copied from the specification and are never computed by the engine under test.
 
 ## Project layout
 
@@ -102,7 +102,7 @@ To add or change a level, edit `data/levels.json` and add its hand-worked cases 
 
 - No person has play-tested the strategy game yet. It was driven by an automated browser, which shows it works and can be won, not that it is fun or well paced.
 - Made for a desktop or laptop screen. On a phone the map is too small to be useful.
-- The 3D models are simple shapes built in code, not sculpted art, and unit banners can crowd each other when many units share one corner of the map.
+- The 3D models are built from simple shapes in code, not sculpted art.
 - Needs a browser with WebGL; if it is missing, the game offers the other two versions.
 - Tested in one browser engine (Chromium). Not tested with a screen reader or touch. Sound was not listened to.
 - The turn-by-turn battle mode from the original idea is not built.
