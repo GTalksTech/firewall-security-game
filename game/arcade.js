@@ -10,7 +10,7 @@ import { validateContent } from '../engine/content.js';
 import { explainVerdict } from '../engine/feedback.js';
 import {
   TUNING, CONTROL_SHORT, CONTROL_KEYS, arcadeOf, buildSchedule, insideHosts as hostsInside, isOutbound,
-  nameOf, flowLabel, flowText, ruleParts, ruleText, leakHint, starsFor, candidatesFor,
+  nameOf, flowLabel, flowText, ruleParts, ruleText, leakHint, leakFix, starsFor, candidatesFor, CONTROL_HELP,
 } from './logic.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -138,7 +138,7 @@ function tileEl(ruleId, inWall, index) {
     : inWall && st.expose ? el('span', { class: 'tile-badge badge-warn' }, 'TOO WIDE')
     : null;
   const tile = el('button', {
-    type: 'button', class: `tile tile-${rule.action}${!inWall && state.tryThese.has(ruleId) ? ' tile-try' : ''}`, dataset: { rule: ruleId },
+    type: 'button', title: rule.label, class: `tile tile-${rule.action}${!inWall && state.tryThese.has(ruleId) ? ' tile-try' : ''}`, dataset: { rule: ruleId },
     'aria-label': `${ruleText(c, rule)}. ${where} ${how}${st.leak ? ` Attackers got through it ${st.leak} times.` : ''}${st.block ? ` It blocked wanted traffic ${st.block} times.` : ''}`,
   },
     inWall ? el('span', { class: 'tile-num' }, String(index + 1)) : null,
@@ -151,12 +151,14 @@ function tileEl(ruleId, inWall, index) {
     !inWall && state.tryThese.has(ruleId) ? el('span', { class: 'tile-badge badge-try' }, 'TRY') : null,
     badge);
   const chips = offered.length === 0 ? null : el('span', { class: 'chips' }, offered.map((name) => {
-    if (!inWall) return el('span', { class: 'chip ghost' }, CONTROL_SHORT[name]);
+    if (!inWall) return el('span', { class: 'chip ghost', title: CONTROL_HELP[name] }, CONTROL_SHORT[name]);
     const on = Boolean(entry.controls[name]);
+    const need = !on && (st.need || []).includes(name);
     return el('button', {
-      type: 'button', class: `chip ${on ? 'on' : 'off'}`, 'aria-pressed': String(on), dataset: { rule: ruleId, control: name },
-      'aria-label': `${CONTROL_SHORT[name]} on gate ${index + 1}`,
-    }, `${on ? '●' : '○'} ${CONTROL_SHORT[name]}`);
+      type: 'button', class: `chip ${on ? 'on' : 'off'}${need ? ' chip-need' : ''}`, 'aria-pressed': String(on), dataset: { rule: ruleId, control: name },
+      title: CONTROL_HELP[name],
+      'aria-label': `${CONTROL_SHORT[name]} on gate ${index + 1}${need ? '. Switch this on to stop the leak' : ''}`,
+    }, `${need ? '! ' : ''}${on ? '●' : '○'} ${CONTROL_SHORT[name]} ${on ? 'ON' : 'OFF'}`);
   }));
   return el('li', { class: 'gate' }, tile, chips);
 }
@@ -213,7 +215,8 @@ function toggleControl(ruleId, name) {
   const entry = state.wall[i];
   if (!(name in (state.challenge.rules[ruleId].controls || {}))) return;
   entry.controls[name] = !entry.controls[name];
-  delete state.stats[ruleId];
+  const left = ((state.stats[ruleId] || {}).need || []).filter((n) => !entry.controls[n]);
+  if (left.length > 0) state.stats[ruleId] = { ...state.stats[ruleId], need: left }; else delete state.stats[ruleId];
   SFX.place();
   renderTiles(ruleId, name);
   announce(`${CONTROL_SHORT[name]} ${entry.controls[name] ? 'on' : 'off'} for gate ${i + 1}.`);
@@ -325,16 +328,17 @@ function playerGeom() {
   const many = list.length > 3;
   const baseX = Math.min(sr.width - 56, wallRight + (sr.width - wallRight) * 0.6);
   const zig = many ? Math.min(62, (sr.width - wallRight) * 0.2) : 0;
+  const tiny = sr.width < 520;
   list.forEach((h, i) => {
     hosts[h.address] = {
-      name: nameOf(state.challenge, h.address), address: h.address, scale: many ? 0.75 : 1,
+      name: nameOf(state.challenge, h.address), address: h.address, scale: tiny ? 0.55 : many ? 0.75 : 1, tiny,
       x: Math.min(sr.width - 44, baseX + (i % 2 === 0 ? -zig : zig)),
       y: sr.height * (list.length === 1 ? 0.45 : many ? 0.22 + (0.5 * i) / (list.length - 1) : 0.28 + (0.4 * i) / (list.length - 1)),
     };
   });
   return {
     w: sr.width, h: sr.height, wallLeft, wallRight, wallTop: wr.top - sr.top, gateYs,
-    ground: sr.height - 22, hosts, px: 4, x0: 0, portalX: 30,
+    ground: sr.height - 22, hosts, px: sr.width < 520 ? 3 : 4, x0: 0, portalX: 30,
     laneY: (i) => sr.height * (0.2 + (((i * 37) % 100) / 100) * 0.42),
   };
 }
@@ -524,6 +528,7 @@ function onArrival(p, pos) {
     burst(pos.x, pos.y, COLOR.bad);
     pop('HIT!', COLOR.bad, pos.x, pos.y, true);
     SFX.hit();
+    (state.stats[p.snap.ruleId] = state.stats[p.snap.ruleId] || {}).need = leakFix(p.flow, v, rule);
     stat(p.snap.ruleId, 'leak');
     const hint = leakHint(state.challenge, p.flow, v, rule, n);
     state.lastHint = hint;
@@ -689,7 +694,7 @@ function startRun() {
 
 function showMission() {
   const active = state.orders.filter((o) => o.shown || o.t === 0);
-  $('#mission').replaceChildren(el('span', { class: 'mission-label' }, 'ORDERS'), ...active.map((o) => el('span', { class: 'order' }, o.short)), el('span', { class: 'order order-rest' }, 'BLOCK THE REST'));
+  $('#mission').replaceChildren(el('span', { class: 'mission-label' }, 'ORDERS'), ...active.map((o) => el('span', { class: `order${o.t > 0 && state.t - o.t < 8 && state.phase === 'play' ? ' order-new' : ''}` }, o.short)), el('span', { class: 'order order-rest' }, 'BLOCK THE REST'));
   measureMission();
 }
 function measureMission() {
@@ -814,7 +819,11 @@ function drawHost(host, hurt, small) {
       rect(host.x - w / 2 + (4 + i * 8) * s, host.y - h / 2 - fh, 5 * s, fh, i % 2 === 0 ? COLOR.warn : COLOR.bad);
     }
   }
-  if (!small) text(host.name, host.x, host.y + h / 2 + 13, COLOR.text, FONT_BIG, 'center');
+  if (!small) {
+    ctx.font = host.tiny ? FONT : FONT_BIG;
+    const half = ctx.measureText(host.name).width / 2 + 2;
+    text(host.name, Math.min(host.x, ctx.canvas.clientWidth - half), host.y + h / 2 + (host.tiny ? 9 : 13), COLOR.text, host.tiny ? FONT : FONT_BIG, 'center');
+  }
 }
 const packetColor = (kind) => (kind === 'attacker' ? COLOR.bad : kind === 'customer' ? COLOR.good : COLOR.stray);
 
@@ -829,13 +838,14 @@ function drawPackets(list, g, labels) {
       const l = flowLabel(state.challenge, p.flow);
       const color = packetColor(p.kind);
       const main = l.payload ? `${l.main} +${l.payload}` : l.main;
-      ctx.font = FONT_BIG;
+      const big = g.w < 520 ? FONT : FONT_BIG;
+      ctx.font = big;
       const half = Math.max(ctx.measureText(main).width, l.who ? ctx.measureText(l.who).width : 0) / 2 + 4;
       const lx = Math.max(half, Math.min(g.w - half, pos.x));
       const below = p.index % 2 === 1; // alternate above and below so neighbours do not stack
       const ly = pos.y + bob + (below ? 26 : -24);
       ctx.globalAlpha = 0.72; rect(lx - half, ly - (l.who && !below ? 25 : 9), half * 2, l.who ? 34 : 18, COLOR.bg); ctx.globalAlpha = 1;
-      text(main, lx, ly, color, FONT_BIG, 'center');
+      text(main, lx, ly, color, big, 'center');
       if (l.who) text(l.who, lx, ly + (below ? 16 : -16), color, FONT, 'center');
       if (l.locked) sprite(SPRITES.lock, pos.x + 22, pos.y + bob + 2, 2, COLOR.warn, pos.alpha);
     }

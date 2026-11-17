@@ -150,8 +150,31 @@ export function register(content) {
 }
 
 // Appended checks for the "TRY" markers.
-import { candidatesFor } from '../game/logic.js';
+import { candidatesFor, leakFix } from '../game/logic.js';
 export function registerTry(content) {
+  for (const level of content.levels) {
+    const c = level.challenges.expert;
+    test(`arcade ${level.id}: the switches flagged after a leak are exactly enough to stop it`, () => {
+      let flagged = 0;
+      for (const atk of [...c.attackSteps, ...c.probes]) {
+        for (const [ruleId, rule] of Object.entries(c.rules)) {
+          const off = Object.fromEntries(Object.keys(rule.controls || {}).map((n) => [n, false]));
+          const v = evaluateFlow([{ ruleId, controls: off }], c.rules, atk);
+          if (v.verdict !== 'allowed') continue;
+          const fix = leakFix(atk, v, rule);
+          if (fix.length === 0) continue;
+          flagged += 1;
+          const on = { ...off, ...Object.fromEntries(fix.map((n) => [n, true])) };
+          assertEqual(evaluateFlow([{ ruleId, controls: on }], c.rules, atk).verdict, 'stopped-by-control', `${atk.id} via ${ruleId}`);
+          for (const drop of fix) {
+            const partial = { ...on, [drop]: false };
+            assertEqual(evaluateFlow([{ ruleId, controls: partial }], c.rules, atk).verdict, 'allowed', `${atk.id} via ${ruleId} without ${drop}`);
+          }
+        }
+      }
+      if (Object.values(c.rules).some((r) => Object.keys(r.controls || {}).length > 0)) assert(flagged > 0, 'no leak was ever flagged');
+    });
+  }
   for (const level of content.levels) {
     const c = level.challenges.expert;
     test(`arcade ${level.id}: every wanted flow has a "TRY" gate, and the reference gate is among them`, () => {

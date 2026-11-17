@@ -336,3 +336,18 @@ Problems seen in screenshots at 1280x800 and 390 wide, and what changed:
 | All three levels won with three stars at 6x speed, automated browser | Pass, no console errors |
 | 390 wide: no sideways page scroll | Pass |
 | 390 wide: playable layout | **Fail**: the wall covers the playfield and part of the HUD is cut off. Carried into loop 2. |
+
+### Loop 2
+
+- After a leak that a switch would have stopped, that switch now flashes on the gate with a "!" in front of it, as well as the hint line. Which switches to flag is worked out in `game/logic.js` and tested against the rule engine: the flagged switches stop the leak, and dropping any one of them does not.
+- Switches now say their state in words ("SCAN ON", "DECRYPT OFF") and carry a one-line explanation on hover. Gates carry their full rule sentence on hover.
+- A new order flashes in the order strip for a few seconds so it is not missed.
+- A three-item key under the tray says what the packet shapes mean: wanted, attack, not needed.
+- Phone width (390): the page was wider than the screen because the layout grid grew to fit the tray, which pushed the HUD and playfield off to the side. Fixed. The wall is narrower there, with smaller gates, hosts, packets and labels, and the tray scrolls sideways.
+
+| Check | Result |
+|---|---|
+| `node tests/run-node.mjs` | Pass: 139 tests |
+| All three levels won with three stars at 6x speed, 1280x800, automated browser | Pass, no console errors |
+| Level 2 with DECRYPT left off: the DECRYPT switch is flagged after the first malware hit | Pass |
+| 390 wide: HUD, wall, hosts, rival and tray all on screen; no sideways page scroll | Pass by screenshot. It is tight: packet labels still crowd each other at the top of the wall. |

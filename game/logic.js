@@ -137,6 +137,23 @@ export function ruleText(c, rule) {
   return `${rule.action === 'allow' ? 'ALLOW' : 'BLOCK'} ${p.who ? `${p.who} ` : ''}${what} TO ${p.where}`;
 }
 
+export const CONTROL_HELP = {
+  threatInspection: 'SCAN: looks inside traffic this gate lets through and stops malware and exploits.',
+  tlsDecryption: 'DECRYPT: unlocks encrypted traffic so SCAN can see inside it.',
+  dnsFiltering: 'DNS FILTER: stops lookups of known-bad domains.',
+};
+
+// The switches on this gate that, turned on, would have stopped what got through.
+export function leakFix(flow, verdict, rule) {
+  const offers = Object.keys(rule.controls || {});
+  const has = (n) => offers.includes(n);
+  if (verdict.reasonCode === 'inspection-blind-encrypted') return has('tlsDecryption') ? ['tlsDecryption'] : [];
+  if (verdict.reasonCode !== 'no-control') return [];
+  if (flow.carries === 'malicious-domain') return has('dnsFiltering') ? ['dnsFiltering'] : [];
+  if (!has('threatInspection')) return [];
+  return flow.encrypted && has('tlsDecryption') ? ['threatInspection', 'tlsDecryption'] : ['threatInspection'];
+}
+
 // One line telling the player how to stop what just got through gate `n`.
 export function leakHint(c, flow, verdict, rule, n) {
   const offers = Object.keys(rule.controls || {});
