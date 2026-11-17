@@ -440,15 +440,60 @@
           "request": "Customers reach WEB-1 (203.0.113.10) on TCP 443. Internet mail servers reach MAIL-1 (203.0.113.25) on TCP 25. Only the support partner (198.51.100.200) reaches JUMP-1 (203.0.113.20) on TCP 22. The known-bad address 198.51.100.66 reaches nothing. MAIL-1 may send mail out on TCP 25; no other DMZ host starts outbound connections.",
           "arcade": {
             "orders": [
-              { "wave": 0, "text": "LET CUSTOMERS REACH WEB-1 ON 443", "short": "443 TO WEB-1", "flows": ["F1"] },
-              { "wave": 1, "text": "NEW ORDER: THE PARTNER NEEDS SSH (22) TO JUMP-1", "short": "22 PARTNER TO JUMP-1", "flows": ["F3"] },
-              { "wave": 2, "text": "NEW ORDER: MAIL (25) IN TO MAIL-1 AND OUT FROM MAIL-1", "short": "25 MAIL IN AND OUT", "flows": ["F2", "F4"] }
+              {
+                "wave": 0,
+                "text": "LET CUSTOMERS REACH WEB-1 ON 443",
+                "short": "443 → WEB-1",
+                "flows": [
+                  "F1"
+                ]
+              },
+              {
+                "wave": 1,
+                "text": "NEW ORDER: THE PARTNER NEEDS SSH (22) TO JUMP-1",
+                "short": "PARTNER 22 → JUMP-1",
+                "flows": [
+                  "F3"
+                ]
+              },
+              {
+                "wave": 2,
+                "text": "NEW ORDER: MAIL (25) IN TO MAIL-1 AND OUT FROM MAIL-1",
+                "short": "25 MAIL IN + OUT",
+                "flows": [
+                  "F2",
+                  "F4"
+                ]
+              }
             ],
             "tags": {
               "198.51.100.200": "PARTNER",
               "198.51.100.66": "BAD IP",
               "198.51.100.30": "MAIL"
-            }
+            },
+            "friend": "CUSTOMERS",
+            "hp": "SERVERS",
+            "names": {
+              "198.51.100.200": "PARTNER",
+              "198.51.100.66": "BAD IP"
+            },
+            "intro": [
+              {
+                "icon": "✓",
+                "tone": "good",
+                "text": "Drag gates onto your wall"
+              },
+              {
+                "icon": "↓",
+                "tone": "warn",
+                "text": "Top gate is checked first"
+              },
+              {
+                "icon": "♥",
+                "tone": "bad",
+                "text": "Let customers in, keep attackers out"
+              }
+            ]
           },
           "topology": {
             "zones": [
@@ -1725,7 +1770,73 @@
             "attack-m1020",
             "attack-m1037",
             "attack-m1030"
-          ]
+          ],
+          "arcade": {
+            "friend": "STAFF",
+            "hp": "OFFICE",
+            "inside": [
+              "Internet"
+            ],
+            "apps": {
+              "HTTPS web browsing": "WEB",
+              "remote-access tunnel": "TUNNEL",
+              "DNS": "DNS",
+              "database": "DB",
+              "file sharing": "FILES",
+              "remote desktop": "RDP",
+              "SSH": "SSH",
+              "remote command execution": "REMOTE CMD",
+              "mail": "MAIL"
+            },
+            "tags": {
+              "10.10.0.23": "STAFF",
+              "10.10.0.90": "CONTRACTOR"
+            },
+            "names": {
+              "198.51.100.53": "DNS",
+              "198.51.100.80": "WEB SITE",
+              "198.51.100.150": "VENDOR",
+              "198.51.100.66": "BAD SITE",
+              "198.51.100.99": "ROGUE DNS"
+            },
+            "orders": [
+              {
+                "wave": 0,
+                "text": "LET STAFF BROWSE THE WEB AND USE DNS",
+                "short": "STAFF: WEB + DNS",
+                "flows": [
+                  "F1",
+                  "F3",
+                  "F4"
+                ]
+              },
+              {
+                "wave": 2,
+                "text": "NEW ORDER: CONTRACTORS NEED THE VENDOR SITE, NOTHING ELSE",
+                "short": "CONTRACTOR: WEB → VENDOR",
+                "flows": [
+                  "F2"
+                ]
+              }
+            ],
+            "intro": [
+              {
+                "icon": "APP",
+                "tone": "good",
+                "text": "APP gates check what the traffic really is, not just its port"
+              },
+              {
+                "icon": "SCAN",
+                "tone": "warn",
+                "text": "Flip a gate's switches to scan what it lets through"
+              },
+              {
+                "icon": "🔒",
+                "tone": "bad",
+                "text": "Locked traffic needs DECRYPT before SCAN can see inside"
+              }
+            ]
+          }
         }
       }
     },
@@ -2549,7 +2660,68 @@
             "attack-m1030",
             "attack-m1031",
             "attack-m1037"
-          ]
+          ],
+          "arcade": {
+            "friend": "USERS",
+            "hp": "SERVERS",
+            "inside": [
+              "Servers"
+            ],
+            "apps": {
+              "HTTPS web browsing": "WEB",
+              "remote-access tunnel": "TUNNEL",
+              "DNS": "DNS",
+              "database": "DB",
+              "file sharing": "FILES",
+              "remote desktop": "RDP",
+              "SSH": "SSH",
+              "remote command execution": "REMOTE CMD",
+              "mail": "MAIL"
+            },
+            "tags": {
+              "10.10.0.50": "DB-ADMIN",
+              "10.10.0.23": "STAFF",
+              "203.0.113.10": "WEB-1",
+              "203.0.113.20": "JUMP-1"
+            },
+            "names": {},
+            "orders": [
+              {
+                "wave": 0,
+                "text": "LET DB-ADMINS AND WEB-1 REACH THE DATABASE",
+                "short": "DB-ADMIN + WEB-1: DB → DB-1",
+                "flows": [
+                  "F1",
+                  "F2"
+                ]
+              },
+              {
+                "wave": 2,
+                "text": "NEW ORDER: STAFF NEED THE FILE SHARE ON APP-2",
+                "short": "STAFF: FILES → APP-2",
+                "flows": [
+                  "F3"
+                ]
+              }
+            ],
+            "intro": [
+              {
+                "icon": "WHO",
+                "tone": "good",
+                "text": "Gates can name who is allowed, not just where they go"
+              },
+              {
+                "icon": "↔",
+                "tone": "warn",
+                "text": "A break-in elsewhere must not spread to your servers"
+              },
+              {
+                "icon": "SCAN",
+                "tone": "bad",
+                "text": "Even trusted traffic can carry an exploit. Scan it."
+              }
+            ]
+          }
         }
       }
     }

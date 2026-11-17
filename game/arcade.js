@@ -8,6 +8,10 @@
 import { evaluateFlow, evaluateSubmission } from '../engine/rules.js';
 import { validateContent } from '../engine/content.js';
 import { explainVerdict } from '../engine/feedback.js';
+import {
+  TUNING, CONTROL_SHORT, CONTROL_KEYS, arcadeOf, buildSchedule, insideHosts as hostsInside, isOutbound,
+  nameOf, flowLabel, flowText, ruleParts, ruleText, leakHint, starsFor,
+} from './logic.js';
 
 const $ = (sel) => document.querySelector(sel);
 const game = $('#game');
@@ -24,17 +28,7 @@ const logEl = $('#log');
 
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-// ---------- tuning ----------
-const T_APPROACH = 2.4;   // seconds from spawn to the wall face
-const T_CHECK = 0.11;     // per gate that does not match
-const T_CROSS = 0.2;      // through an open gate
-const T_TRAVEL = 0.75;    // from the wall to a server
-const T_FADE = 0.45;
-const WARMUP = 9;         // customers only; nothing is lost yet
-const WAVE_LEN = 18;
-const ORDER_GRACE = 7;   // seconds after a new order before blocked customers cost patience
-const MAX_HP = 5;
-const MAX_PATIENCE = 5;
+const { T_APPROACH, T_CHECK, T_CROSS, T_TRAVEL, T_FADE, WARMUP, ORDER_GRACE, MAX_HP, MAX_PATIENCE, RIVAL_HP } = TUNING;
 
 const COLOR = {
   bg: '#0b1020', grid: '#141b33', ground: '#1d2748', text: '#e8ecf4', dim: '#8a96b3',
@@ -51,19 +45,21 @@ const SPRITES = {
   stray: ['.XXXXX.', 'XXXXXXX', 'XX.X.XX', 'XXXXXXX', 'XXXXXXX', 'X.X.X.X'],
   spark: ['X.X.X', '.XXX.', 'XXXXX', '.XXX.', 'X.X.X'],
   heart: ['.XX.XX.', 'XXXXXXX', 'XXXXXXX', '.XXXXX.', '..XXX..', '...X...'],
+  lock: ['.XXX.', 'X...X', 'XXXXX', 'XX.XX', 'XXXXX'],
 };
 
 const state = {
   phase: 'title', // title | play | over
   paused: false,
-  challenge: null, level: null, outsideZone: null,
+  levels: [], levelIndex: 0, progress: { stars: {}, best: {} }, cfg: null,
+  challenge: null, level: null,
   wall: [],
   schedule: [], next: 0, t: 0, runLength: 1, waveStarts: [], wave: -1,
-  packets: [], rival: { hp: MAX_HP, packets: [], downAt: null },
+  packets: [], rival: { hp: RIVAL_HP, packets: [], downAt: null },
   hp: MAX_HP, patience: MAX_PATIENCE, score: 0, combo: 0, bestCombo: 0, streak: 0,
   stats: {}, leaked: new Set(), exposed: new Set(), blockedAfterWarmup: 0,
   effects: [], shake: 0, hover: null, sound: true, best: 0, coachUntil: 0, lastHit: null,
-  tags: {}, orders: [], orderTime: {},
+  orders: [], orderTime: {},
 };
 
 // ---------- sound ----------
@@ -119,115 +115,59 @@ function logLine(text, kind = '') {
 }
 const lerp = (a, b, t) => a + (b - a) * Math.max(0, Math.min(1, t));
 const ease = (t) => 1 - (1 - Math.max(0, Math.min(1, t))) ** 2;
-function hostNames() {
-  const map = {};
-  for (const h of state.challenge.topology.hosts) map[h.address] = h.name;
-  return map;
-}
-function portText(flowOrRule) {
-  if (flowOrRule.application) return flowOrRule.application.toUpperCase();
-  if (flowOrRule.services) return flowOrRule.services.map((s) => s.port).join('+');
-  if (flowOrRule.port !== undefined) return String(flowOrRule.port);
-  return 'ANY';
-}
+const label = (flow) => flowText(state.challenge, flow);
 function coach(text, seconds = 5) {
   coachEl.textContent = text;
   coachEl.classList.add('show');
   state.coachUntil = state.t + seconds;
 }
 
-// ---------- schedule ----------
-// A fixed timetable, so the same play always meets the same traffic.
-// Warm-up: customers only. Then one wave per attack step; each wave adds that
-// attack and it keeps coming. Business orders arrive on set waves and add new
-// customers that must be let in.
-const waveTime = (w) => (w <= 0 ? 0 : WARMUP + (w - 1) * WAVE_LEN);
-
-function arcadeOf(c) {
-  const a = c.arcade || {};
-  return {
-    orders: a.orders || [{ wave: 0, text: 'LET YOUR CUSTOMERS IN', short: 'CUSTOMERS IN', flows: c.requiredFlows.map((f) => f.id) }],
-    tags: a.tags || {},
-  };
-}
-
-function buildSchedule(c) {
-  const items = [];
-  const waves = c.attackSteps.length;
-  const end = WARMUP + waves * WAVE_LEN;
-  const every = (flow, kind, from, gap) => {
-    for (let t = from; t < end - 2; t += gap) items.push({ t, flow, kind });
-  };
-  const { orders } = arcadeOf(c);
-  const orderTime = {};
-  orders.forEach((o) => o.flows.forEach((id) => { orderTime[id] = waveTime(o.wave); }));
-  c.requiredFlows.forEach((flow, i) => {
-    const from = orderTime[flow.id] || 0;
-    every(flow, 'customer', from + 0.4 + i * 0.7, i === 0 ? 1.7 : 3.4);
-  });
-  const waveStarts = [];
-  for (let k = 0; k < waves; k += 1) {
-    const start = WARMUP + k * WAVE_LEN;
-    waveStarts.push(start);
-    every(c.attackSteps[k], 'attacker', start + 2.6 + k * 0.3, 3.1);
-  }
-  c.probes.forEach((flow, i) => every(flow, 'stray', WARMUP + Math.min(waves - 1, 1 + i) * WAVE_LEN + 4 + i * 2.2, 7.5));
-  items.sort((a, b) => a.t - b.t);
-  return { items, waveStarts, end, orderTime, orders: orders.map((o) => ({ ...o, t: waveTime(o.wave), shown: false })) };
-}
-
-function tagFor(address) {
-  if (!address) return null;
-  return state.tags[address] || null;
-}
-
-// What floats above a packet: its port, and who sent it when that matters.
-function packetLabel(flow) {
-  const tag = tagFor(flow.srcAddress);
-  return tag ? `${portText(flow)} ${tag}` : portText(flow);
-}
-
 // ---------- tiles ----------
-function tileParts(rule) {
-  const names = hostNames();
-  const name = (addr) => (addr ? tagFor(addr) || (names[addr] || addr).toUpperCase() : 'ANY');
-  const outbound = rule.fromZone !== state.outsideZone;
-  if (outbound) return { port: portText(rule), dst: `OUT FROM ${name(rule.srcAddress)}` };
-  if (rule.srcAddress) return { port: portText(rule), dst: `${name(rule.srcAddress)}${rule.dstAddress ? ` TO ${name(rule.dstAddress)}` : ''}`, from: true };
-  return { port: portText(rule), dst: name(rule.dstAddress) };
-}
-
 function tileEl(ruleId, inWall, index) {
-  const rule = state.challenge.rules[ruleId];
-  const parts = tileParts(rule);
+  const c = state.challenge;
+  const rule = c.rules[ruleId];
+  const parts = ruleParts(c, rule);
   const st = state.stats[ruleId] || {};
+  const entry = inWall ? state.wall[index] : null;
+  const offered = Object.keys(rule.controls || {});
   const where = inWall ? `Gate ${index + 1} of ${state.wall.length}.` : 'Spare gate.';
-  const how = inWall ? 'Arrow Up or Down moves it. Enter removes it.' : 'Enter adds it to the bottom of your wall.';
+  const keys = offered.map((n) => `${CONTROL_KEYS[n].toUpperCase()} switches ${CONTROL_SHORT[n]}.`).join(' ');
+  const how = inWall ? `Arrow Up or Down moves it. Enter removes it. ${keys}` : 'Enter adds it to the bottom of your wall.';
   const badge = inWall && st.leak ? el('span', { class: 'tile-badge badge-bad' }, `LEAK ×${st.leak}`)
-    : inWall && st.block ? el('span', { class: 'tile-badge badge-bad' }, `BLOCKS CUSTOMERS ×${st.block}`)
+    : inWall && st.block ? el('span', { class: 'tile-badge badge-bad' }, `BLOCKS ${state.cfg.friend} ×${st.block}`)
     : inWall && st.expose ? el('span', { class: 'tile-badge badge-warn' }, 'TOO WIDE')
     : null;
   const tile = el('button', {
     type: 'button', class: `tile tile-${rule.action}`, dataset: { rule: ruleId },
-    'aria-label': `${rule.label}. ${where} ${how}${st.leak ? ` Attackers got through it ${st.leak} times.` : ''}${st.block ? ` It blocked customers ${st.block} times.` : ''}`,
+    'aria-label': `${ruleText(c, rule)}. ${where} ${how}${st.leak ? ` Attackers got through it ${st.leak} times.` : ''}${st.block ? ` It blocked wanted traffic ${st.block} times.` : ''}`,
   },
     inWall ? el('span', { class: 'tile-num' }, String(index + 1)) : null,
     el('span', { class: 'tile-icon' }, rule.action === 'allow' ? '✓' : '✕'),
-    el('span', { class: 'tile-port' }, parts.port),
-    el('span', { class: 'tile-arrow' }, parts.from ? 'FROM' : '→'),
-    el('span', { class: 'tile-dst' }, parts.dst),
+    parts.who ? el('span', { class: 'tile-who' }, parts.who) : null,
+    parts.showKind ? el('span', { class: 'tile-kind' }, parts.kind === 'app' ? 'APP' : 'PORT') : null,
+    el('span', { class: 'tile-port' }, parts.what),
+    el('span', { class: 'tile-arrow' }, '→'),
+    el('span', { class: 'tile-dst' }, parts.where),
     badge);
-  return el('li', {}, tile);
+  const chips = offered.length === 0 ? null : el('span', { class: 'chips' }, offered.map((name) => {
+    if (!inWall) return el('span', { class: 'chip ghost' }, CONTROL_SHORT[name]);
+    const on = Boolean(entry.controls[name]);
+    return el('button', {
+      type: 'button', class: `chip ${on ? 'on' : 'off'}`, 'aria-pressed': String(on), dataset: { rule: ruleId, control: name },
+      'aria-label': `${CONTROL_SHORT[name]} on gate ${index + 1}`,
+    }, `${on ? '●' : '○'} ${CONTROL_SHORT[name]}`);
+  }));
+  return el('li', { class: 'gate' }, tile, chips);
 }
 
-function renderTiles(focusRule) {
+function renderTiles(focusRule, focusControl) {
   const c = state.challenge;
   const onWall = new Set(state.wall.map((e) => e.ruleId));
   wallEl.replaceChildren(...state.wall.map((e, i) => tileEl(e.ruleId, true, i)));
   if (state.wall.length === 0) wallEl.append(el('li', { class: 'wall-empty' }, 'DROP GATES HERE'));
   trayEl.replaceChildren(...Object.keys(c.rules).filter((id) => !onWall.has(id)).map((id) => tileEl(id, false, 0)));
   if (focusRule) {
-    const target = document.querySelector(`.tile[data-rule="${focusRule}"]`);
+    const target = document.querySelector(focusControl ? `.chip[data-rule="${focusRule}"][data-control="${focusControl}"]` : `.tile[data-rule="${focusRule}"]`);
     if (target) target.focus();
   }
 }
@@ -242,7 +182,7 @@ function addToWall(ruleId, at = state.wall.length) {
   delete state.stats[ruleId];
   SFX.place();
   renderTiles(ruleId);
-  announce(`${rule.label} placed as gate ${wallIndex(ruleId) + 1} of ${state.wall.length}.`);
+  announce(`${ruleText(state.challenge, rule)} placed as gate ${wallIndex(ruleId) + 1} of ${state.wall.length}.`);
 }
 function removeFromWall(ruleId) {
   const i = wallIndex(ruleId);
@@ -265,6 +205,22 @@ function moveOnWall(ruleId, to) {
   announce(`Now gate ${target + 1} of ${state.wall.length}.`);
 }
 
+function toggleControl(ruleId, name) {
+  const i = wallIndex(ruleId);
+  if (!canEdit() || i === -1) return;
+  const entry = state.wall[i];
+  if (!(name in (state.challenge.rules[ruleId].controls || {}))) return;
+  entry.controls[name] = !entry.controls[name];
+  delete state.stats[ruleId];
+  SFX.place();
+  renderTiles(ruleId, name);
+  announce(`${CONTROL_SHORT[name]} ${entry.controls[name] ? 'on' : 'off'} for gate ${i + 1}.`);
+}
+document.addEventListener('click', (event) => {
+  const chip = event.target.closest && event.target.closest('.chip[data-control]');
+  if (chip) toggleControl(chip.dataset.rule, chip.dataset.control);
+});
+
 document.addEventListener('keydown', (event) => {
   if ((event.key === 'p' || event.key === 'P') && state.phase === 'play' && modal.hidden) { togglePause(); return; }
   const tile = event.target.closest && event.target.closest('.tile');
@@ -275,6 +231,8 @@ document.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); addToWall(id); }
     return;
   }
+  const control = Object.keys(CONTROL_KEYS).find((n) => CONTROL_KEYS[n] === event.key.toLowerCase());
+  if (control) { toggleControl(id, control); renderTiles(id); return; }
   if (event.key === 'ArrowUp') { event.preventDefault(); moveOnWall(id, i - 1); }
   else if (event.key === 'ArrowDown') { event.preventDefault(); moveOnWall(id, i + 1); }
   else if (['Enter', ' ', 'Delete', 'Backspace'].includes(event.key)) { event.preventDefault(); removeFromWall(id); }
@@ -349,7 +307,7 @@ stage.addEventListener('pointermove', (event) => {
 stage.addEventListener('pointerleave', () => { state.hover = null; });
 
 // ---------- geometry ----------
-const insideHosts = () => state.challenge.topology.hosts.filter((h) => h.zone !== state.outsideZone);
+const insideHosts = () => hostsInside(state.challenge);
 
 function playerGeom() {
   const sr = stage.getBoundingClientRect();
@@ -362,11 +320,14 @@ function playerGeom() {
   const wallRight = wr.right - sr.left;
   const hosts = {};
   const list = state.challenge ? insideHosts() : [];
+  const many = list.length > 3;
+  const baseX = Math.min(sr.width - 56, wallRight + (sr.width - wallRight) * 0.6);
+  const zig = many ? Math.min(62, (sr.width - wallRight) * 0.2) : 0;
   list.forEach((h, i) => {
     hosts[h.address] = {
-      name: h.name, address: h.address,
-      x: Math.min(sr.width - 56, wallRight + (sr.width - wallRight) * 0.6),
-      y: sr.height * (list.length === 1 ? 0.45 : 0.28 + (0.4 * i) / (list.length - 1)),
+      name: nameOf(state.challenge, h.address), address: h.address, scale: many ? 0.75 : 1,
+      x: Math.min(sr.width - 44, baseX + (i % 2 === 0 ? -zig : zig)),
+      y: sr.height * (list.length === 1 ? 0.45 : many ? 0.22 + (0.5 * i) / (list.length - 1) : 0.28 + (0.4 * i) / (list.length - 1)),
     };
   });
   return {
@@ -398,7 +359,7 @@ function rivalGeom(base) {
 
 // ---------- packets ----------
 function spawn(item, index) {
-  const outbound = item.flow.fromZone !== state.outsideZone;
+  const outbound = isOutbound(state.challenge, item.flow);
   const make = () => ({ flow: item.flow, kind: item.kind, index, outbound, spawn: item.t, snap: null, decided: false, arrived: false, done: false });
   state.packets.push(make());
   if (state.rival.downAt === null) state.rival.packets.push(make());
@@ -480,8 +441,8 @@ function stat(ruleId, key) {
   state.stats[ruleId] = state.stats[ruleId] || {};
   state.stats[ruleId][key] = (state.stats[ruleId][key] || 0) + 1;
   if (drag) return; // do not rebuild tiles mid-drag
-  const active = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.rule : null;
-  renderTiles(active);
+  const data = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset : {};
+  renderTiles(data.rule || null, data.control || null);
 }
 function flashGate(index, cls) {
   const tile = wallEl.querySelectorAll('.tile')[index];
@@ -495,7 +456,7 @@ const gateNumber = (p) => (p.snap.verdict.matchedIndex === null ? null : p.snap.
 function onDecision(p, pos) {
   const v = p.snap.verdict;
   const m = v.matchedIndex;
-  const port = portText(p.flow);
+  const what = label(p.flow);
   if (m === null) SFX.pit();
   else if (v.verdict === 'denied-by-rule') { flashGate(m, 'gate-deny'); burst(pos.x, pos.y, COLOR.warn); SFX.deny(); }
   else flashGate(m, 'gate-allow');
@@ -505,34 +466,35 @@ function onDecision(p, pos) {
     breakCombo();
     pop(m === null ? 'NO GATE FOR ME!' : `GATE ${m + 1} SAID NO!`, COLOR.bad, pos.x, pos.y);
     SFX.angry();
-    logLine(`Customer on ${port} blocked: ${m === null ? 'no gate matches (implicit deny)' : `gate ${m + 1} denies`}.`, 'bad');
+    logLine(`Wanted traffic (${what}) blocked: ${m === null ? 'no gate matches (implicit deny)' : `gate ${m + 1} denies`}.`, 'bad');
     if (state.t >= Math.max(WARMUP, (state.orderTime[p.flow.id] || 0) + ORDER_GRACE)) {
       state.patience -= 1;
       state.blockedAfterWarmup += 1;
       stat(p.snap.ruleId, 'block');
       if (state.patience <= 0) { lose('outage', p); return; }
     }
-    coach(m === null ? `NO GATE LETS ${packetLabel(p.flow)} CUSTOMERS IN. ADD ONE.` : `GATE ${m + 1} IS BLOCKING ${packetLabel(p.flow)} CUSTOMERS. MOVE IT DOWN OR PULL IT OFF.`);
+    coach(m === null ? `NO GATE LETS ${what} THROUGH. ADD ONE.` : `GATE ${m + 1} IS BLOCKING ${what}. MOVE IT DOWN OR PULL IT OFF.`);
   } else if (p.kind === 'attacker') {
     bumpCombo();
     gain(10, pos.x, pos.y);
     SFX.stop();
-    logLine(`Attacker on ${port} stopped: ${m === null ? 'no match, implicit deny' : `gate ${m + 1} denies`}.`, 'good');
+    logLine(`Attack (${what}) stopped: ${m === null ? 'no match, implicit deny' : `gate ${m + 1} denies`}.`, 'good');
   } else {
     gain(2, pos.x, pos.y);
-    logLine(`Stray packet on ${port} denied.`, 'good');
+    logLine(`Unneeded traffic (${what}) denied.`, 'good');
   }
 }
 
 function onArrival(p, pos) {
   const v = p.snap.verdict;
-  const port = portText(p.flow);
+  const what = label(p.flow);
   const n = gateNumber(p);
+  const rule = state.challenge.rules[p.snap.ruleId];
   if (v.verdict === 'stopped-by-control') {
     burst(pos.x, pos.y, COLOR.warn);
-    pop('SCANNED!', COLOR.good, pos.x, pos.y);
+    pop(v.control === 'dnsFiltering' ? 'FILTERED!' : 'SCANNED!', COLOR.good, pos.x, pos.y);
     if (p.kind !== 'customer') { bumpCombo(); gain(10, pos.x, pos.y); SFX.stop(); }
-    logLine(`Packet on ${port} let through gate ${n}, then stopped by a scanner.`, 'good');
+    logLine(`${what} let through gate ${n}, then stopped by ${CONTROL_SHORT[v.control] || 'a scanner'}.`, 'good');
     return;
   }
   if (p.kind === 'customer') {
@@ -541,19 +503,21 @@ function onArrival(p, pos) {
     if (state.streak % 3 === 0 && state.patience < MAX_PATIENCE) state.patience += 1;
     gain(5, pos.x, pos.y);
     SFX.deliver();
-    logLine(`Customer on ${port} served through gate ${n}.`, 'good');
+    logLine(`Wanted traffic (${what}) served through gate ${n}.`, 'good');
   } else if (p.kind === 'attacker') {
     breakCombo();
     state.hp -= 1;
     state.shake = 0.5;
     state.leaked.add(p.flow.id);
-    state.lastHit = { address: p.flow.dstAddress, until: state.t + 1.2 };
+    state.lastHit = { address: p.outbound ? p.flow.srcAddress : p.flow.dstAddress, until: state.t + 1.2 };
     burst(pos.x, pos.y, COLOR.bad);
     pop('HIT!', COLOR.bad, pos.x, pos.y, true);
     SFX.hit();
     stat(p.snap.ruleId, 'leak');
-    logLine(`BREACH: attacker on ${port} got in through gate ${n}.`, 'bad');
-    coach(`GATE ${n} IS LETTING ${packetLabel(p.flow)} ATTACKERS IN. FIX IT!`);
+    const hint = leakHint(state.challenge, p.flow, v, rule, n);
+    state.lastHint = hint;
+    logLine(`BREACH: ${what} got through gate ${n}. ${hint}`, 'bad');
+    coach(hint, 6);
     if (state.hp <= 0) lose('breach', p);
   } else {
     state.exposed.add(p.flow.id);
@@ -561,7 +525,7 @@ function onArrival(p, pos) {
     pop('NOT NEEDED  -5', COLOR.warn, pos.x, pos.y);
     SFX.expose();
     stat(p.snap.ruleId, 'expose');
-    logLine(`Exposure: unneeded traffic on ${port} got through gate ${n}.`, 'warn');
+    logLine(`Exposure: unneeded traffic (${what}) got through gate ${n}.`, 'warn');
   }
 }
 
@@ -573,11 +537,11 @@ function pips(node, value, max, on, off, label) {
 }
 let hudKey = '';
 function updateHud() {
-  const key = `${state.hp}|${state.patience}|${state.score}|${state.combo}|${state.wave}`;
+  const key = `${state.levelIndex}|${state.hp}|${state.patience}|${state.score}|${state.combo}|${state.wave}`;
   if (key !== hudKey) {
     hudKey = key;
-    pips($('#hud-hp'), state.hp, MAX_HP, '♥', '♡', 'SERVERS');
-    pips($('#hud-cust'), state.patience, MAX_PATIENCE, '☺', '☹', 'CUSTOMERS');
+    pips($('#hud-hp'), state.hp, MAX_HP, '♥', '♡', state.cfg ? state.cfg.hp : 'SERVERS');
+    pips($('#hud-cust'), state.patience, MAX_PATIENCE, '☺', '☹', state.cfg ? state.cfg.friend : 'CUSTOMERS');
     $('#hud-score').textContent = String(state.score);
     const combo = $('#hud-combo');
     combo.textContent = state.combo >= 2 ? `COMBO ${state.combo}  ×${mult()}` : '';
@@ -594,20 +558,95 @@ function banner(text, tone) {
 
 // ---------- flow of play ----------
 function setBackgroundInert(on) { for (const id of ['#hud', '#stage', '#tray-zone', '#log-panel']) $(id).inert = on; }
+function closeModal() { modal.hidden = true; setBackgroundInert(false); }
 function showModal({ title, body, actions, tone }) {
   $('#modal-title').textContent = title;
   $('#modal-body').replaceChildren(...body.filter(Boolean));
   const buttons = actions.filter(Boolean).map((a) => {
     const b = a.href ? el('a', { class: a.primary ? 'big-btn' : 'small-btn', href: a.href }, a.label)
       : el('button', { type: 'button', class: a.primary ? 'big-btn' : 'small-btn' }, a.label);
-    if (a.onClick) b.addEventListener('click', () => { modal.hidden = true; setBackgroundInert(false); a.onClick(); });
+    if (a.onClick) b.addEventListener('click', () => { closeModal(); a.onClick(); });
     return b;
   });
   $('#modal-actions').replaceChildren(...buttons);
   modal.className = tone || '';
   modal.hidden = false;
   setBackgroundInert(true);
-  (buttons.find((b) => b.classList.contains('big-btn')) || buttons[0]).focus();
+  const first = modal.querySelector('[data-autofocus]') || buttons.find((b) => b.classList.contains('big-btn')) || buttons[0];
+  if (first) first.focus();
+}
+
+// ---------- levels ----------
+const STORE = 'firewall-faceoff-arcade-v1';
+function loadProgress() {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(STORE) || 'null');
+    if (saved && saved.stars && saved.best) state.progress = saved;
+  } catch (err) { /* progress is optional */ }
+}
+function saveProgress() {
+  try { window.localStorage.setItem(STORE, JSON.stringify(state.progress)); } catch (err) { /* progress is optional */ }
+}
+const starText = (n) => '★'.repeat(n) + '☆'.repeat(3 - n);
+
+function selectLevel(index) {
+  const entry = state.levels[index];
+  state.levelIndex = index;
+  state.level = entry.level;
+  state.challenge = entry.challenge;
+  state.cfg = arcadeOf(entry.challenge);
+  state.phase = 'title';
+  state.wall = [];
+  state.packets = [];
+  state.rival = { hp: RIVAL_HP, packets: [], downAt: null };
+  state.stats = {};
+  state.orders = buildSchedule(state.challenge).orders;
+  game.className = 'phase-title';
+  showMission();
+  renderTiles();
+  hudKey = '';
+  updateHud();
+}
+
+function showLevels() {
+  const inPlay = state.phase === 'play';
+  const cards = state.levels.map((entry, i) => {
+    const stars = state.progress.stars[entry.level.id] || 0;
+    const card = el('button', { type: 'button', class: 'level-card', 'data-autofocus': i === state.levelIndex ? true : null,
+      'aria-label': `Level ${i + 1}: ${entry.level.title}. ${stars} of 3 stars.` },
+      el('span', { class: 'level-num' }, String(i + 1)),
+      el('span', { class: 'level-name' }, entry.level.title.toUpperCase()),
+      el('span', { class: 'level-skill' }, entry.level.capability),
+      el('span', { class: `level-stars ${stars ? 'has' : ''}` }, starText(stars)));
+    card.addEventListener('click', () => { closeModal(); selectLevel(i); showIntro(); });
+    return card;
+  });
+  showModal({
+    title: 'FIREWALL FACEOFF',
+    body: [
+      el('p', { class: 'modal-tagline' }, 'Let the right traffic in. Keep the rest out.'),
+      el('div', { class: 'level-grid' }, cards),
+    ],
+    actions: [
+      inPlay ? { label: 'BACK TO THE GAME', onClick: () => {} } : null,
+      { label: 'TEXT EDITION', href: 'classic.html' },
+    ],
+  });
+}
+
+function showIntro() {
+  const n = state.levelIndex + 1;
+  showModal({
+    title: `LEVEL ${n}: ${state.level.title.toUpperCase()}`,
+    body: [
+      el('div', { class: 'howto' }, state.cfg.intro.map((row) => el('div', {}, el('span', { class: `howto-icon ${row.tone || ''}` }, row.icon), row.text))),
+      reducedMotion() ? el('p', { class: 'modal-small' }, 'This edition is animated and plays in real time. You can pause at any moment and still change your wall. The text edition has no motion.') : null,
+    ],
+    actions: [
+      { label: 'START', primary: true, onClick: startRun },
+      { label: 'LEVELS', onClick: showLevels },
+    ],
+  });
 }
 
 function startRun() {
@@ -618,10 +657,10 @@ function startRun() {
     wall: [], // the arcade edition always starts from a bare wall
     orders: plan.orders, orderTime: plan.orderTime,
     schedule: plan.items, next: 0, t: 0, runLength: plan.end + 4, waveStarts: plan.waveStarts, wave: -1,
-    packets: [], rival: { hp: MAX_HP, packets: [], downAt: null },
+    packets: [], rival: { hp: RIVAL_HP, packets: [], downAt: null },
     hp: MAX_HP, patience: MAX_PATIENCE, score: 0, combo: 0, bestCombo: 0, streak: 0,
     stats: {}, leaked: new Set(), exposed: new Set(), blockedAfterWarmup: 0,
-    effects: [], shake: 0, lastHit: null, coachUntil: 0,
+    effects: [], shake: 0, lastHit: null, lastHint: null, coachUntil: 0,
   });
   game.className = 'phase-play';
   $('#btn-pause').textContent = 'PAUSE';
@@ -630,10 +669,10 @@ function startRun() {
   renderTiles();
   updateHud();
   showMission();
-  coach('CUSTOMERS ARE COMING. DRAG A GREEN GATE ONTO THE WALL.', 8);
+  coach(`${state.cfg.friend} ARE COMING. DRAG A GREEN GATE ONTO THE WALL.`, 8);
   const first = trayEl.querySelector('.tile');
   if (first) first.focus();
-  announce('The game has started. Customers are arriving. Add a gate to your wall.');
+  announce(`Level ${state.levelIndex + 1} has started. Wanted traffic is arriving. Add a gate to your wall.`);
 }
 
 function showMission() {
@@ -653,7 +692,7 @@ function togglePause() {
 function lessonsFor(ids) {
   const c = state.challenge;
   return [...c.attackSteps, ...c.probes].filter((f) => ids.has(f.id) && f.lesson).slice(0, 3)
-    .map((f) => el('li', {}, el('strong', {}, `PORT ${portText(f)}: `), `${f.lesson.split('. ')[0].replace(/\.$/, '')}.`));
+    .map((f) => el('li', {}, el('strong', {}, `${label(f)}: `), `${f.lesson.split('. ')[0].replace(/\.$/, '')}.`));
 }
 
 function lose(type, p) {
@@ -670,11 +709,12 @@ function lose(type, p) {
     title: type === 'breach' ? 'BREACHED' : 'OUTAGE', tone: 'bad',
     body: [
       el('p', { class: 'modal-lead' }, type === 'breach'
-        ? `Port ${portText(p.flow)} attackers kept getting in through gate ${n}.`
-        : (n === null ? 'No gate let your customers in.' : `Gate ${n} kept turning customers away.`)),
+        ? `${label(p.flow)} kept getting through gate ${n}.`
+        : (n === null ? `No gate let ${label(p.flow)} through.` : `Gate ${n} kept turning ${label(p.flow)} away.`)),
+      type === 'breach' && state.lastHint ? el('p', { class: 'modal-fix' }, state.lastHint) : null,
       el('p', { class: 'modal-small' }, `You lasted ${clockText(state.t)}. Score ${state.score}.`),
     ],
-    actions: [{ label: 'TRY AGAIN', primary: true, onClick: startRun }],
+    actions: [{ label: 'TRY AGAIN', primary: true, onClick: startRun }, { label: 'LEVELS', onClick: showLevels }],
   }), reducedMotion() ? 0 : 1200);
 }
 
@@ -683,10 +723,12 @@ function win() {
   state.phase = 'over';
   game.className = 'phase-over';
   const result = evaluateSubmission(state.challenge, state.wall);
-  const tight = result.completed && result.exposures.length === 0;
-  const clean = state.leaked.size === 0 && state.blockedAfterWarmup === 0 && state.exposed.size === 0;
-  const stars = tight && clean ? 3 : result.completed && state.hp >= 3 ? 2 : 1;
-  state.best = Math.max(state.best, state.score);
+  const stars = starsFor(result, { leaks: state.leaked.size, blocked: state.blockedAfterWarmup, exposed: state.exposed.size, hp: state.hp });
+  const id = state.level.id;
+  state.progress.stars[id] = Math.max(state.progress.stars[id] || 0, stars);
+  state.progress.best[id] = Math.max(state.progress.best[id] || 0, state.score);
+  saveProgress();
+  const hasNext = state.levelIndex + 1 < state.levels.length;
   SFX.win();
   banner('LEVEL CLEAR', 'good');
   const rivalLine = state.rival.downAt !== null
@@ -707,8 +749,9 @@ function win() {
       el('p', { class: 'modal-badge' }, 'UNLOCKED: ', el('strong', {}, state.level.capability.toUpperCase())),
     ],
     actions: [
-      { label: stars === 3 ? 'PLAY AGAIN' : 'GO FOR 3 STARS', primary: true, onClick: startRun },
-      { label: 'MORE LEVELS: TEXT EDITION', href: 'classic.html' },
+      hasNext ? { label: 'NEXT LEVEL', primary: true, onClick: () => { selectLevel(state.levelIndex + 1); showIntro(); } } : null,
+      { label: stars === 3 ? 'PLAY AGAIN' : 'GO FOR 3 STARS', primary: !hasNext, onClick: startRun },
+      { label: 'LEVELS', onClick: showLevels },
     ],
   }), reducedMotion() ? 0 : 1300);
 }
@@ -738,7 +781,7 @@ function bricks(x, y, w, h) {
   }
 }
 function drawHost(host, hurt, small) {
-  const s = small ? 0.5 : 1;
+  const s = small ? 0.5 : (host.scale || 1);
   const w = 46 * s;
   const h = 64 * s;
   rect(host.x - w / 2, host.y - h / 2, w, h, COLOR.mortar);
@@ -764,7 +807,13 @@ function drawPackets(list, g, labels) {
     if (!pos || pos.alpha <= 0) continue;
     const bob = !p.snap ? Math.sin(state.t * 9 + p.index) * 3 : 0;
     sprite(SPRITES[p.kind], pos.x, pos.y + bob, g.px, packetColor(p.kind), pos.alpha);
-    if (labels && pos.alpha > 0.5) text(packetLabel(p.flow), pos.x, pos.y + bob - 24, packetColor(p.kind), FONT_BIG, 'center');
+    if (labels && pos.alpha > 0.5) {
+      const l = flowLabel(state.challenge, p.flow);
+      const color = packetColor(p.kind);
+      text(l.payload ? `${l.main} +${l.payload}` : l.main, pos.x, pos.y + bob - 24, color, FONT_BIG, 'center');
+      if (l.who) text(l.who, pos.x, pos.y + bob - 40, color, FONT, 'center');
+      if (l.locked) sprite(SPRITES.lock, pos.x + 22, pos.y + bob + 2, 2, COLOR.warn, pos.alpha);
+    }
   }
 }
 
@@ -814,8 +863,8 @@ function draw() {
   const c = state.challenge;
   if (!c) { ctx.restore(); return; }
 
-  text(state.outsideZone.toUpperCase(), 14, 54, COLOR.rival, FONT_HUGE);
-  text(c.topology.zones.filter((z) => z !== state.outsideZone).join(' + ').toUpperCase(), g.w - 14, 54, COLOR.you, FONT_HUGE, 'right');
+  text(c.topology.zones.filter((z) => !state.cfg.inside.includes(z)).join(' + ').toUpperCase(), 14, 54, COLOR.rival, FONT_HUGE);
+  text(state.cfg.inside.join(' + ').toUpperCase(), g.w - 14, 54, COLOR.you, FONT_HUGE, 'right');
 
   const spin = Math.floor(state.t * 8) % 4;
   for (let i = 0; i < 4; i += 1) rect(g.portalX - 16 + (i === spin ? 3 : 0), g.h * 0.2 + i * (g.h * 0.42 / 4), 9, g.h * 0.42 / 4 - 6, i === spin ? COLOR.rival : '#5a2440');
@@ -857,7 +906,7 @@ function drawRival(base) {
   ctx.strokeStyle = COLOR.rival; ctx.lineWidth = 2;
   ctx.strokeRect(b.x + 1, b.y + 1, b.w - 2, b.h - 2);
   text('RIVAL', b.x + 10, b.y + 14, COLOR.rival, FONT_BIG);
-  for (let i = 0; i < MAX_HP; i += 1) sprite(SPRITES.heart, b.x + b.w - 14 - i * 18, b.y + 14, 2, i < state.rival.hp ? COLOR.bad : '#3a2030');
+  for (let i = 0; i < RIVAL_HP; i += 1) sprite(SPRITES.heart, b.x + b.w - 14 - i * 18, b.y + 14, 2, i < state.rival.hp ? COLOR.bad : '#3a2030');
   bricks(r.wallLeft - 3, r.wallTop, r.wallRight - r.wallLeft + 6, r.ground - r.wallTop);
   state.challenge.rival.ruleBase.forEach((entry, i) => {
     const rule = state.challenge.rules[entry.ruleId];
@@ -883,7 +932,7 @@ function step(dt) {
       state.wave = k;
       const atk = c.attackSteps[k];
       banner(`WAVE ${k + 1}`, 'neutral');
-      if (!state.orders.some((o) => o.t === state.waveStarts[k])) coach(`INCOMING: ${packetLabel(atk)} ATTACKERS`, 5);
+      if (!state.orders.some((o) => o.t === state.waveStarts[k])) coach(`INCOMING ATTACK: ${label(atk)}`, 5);
       SFX.wave();
       logLine(`Wave ${k + 1}: ${atk.label}.`, 'head');
       announce(`Wave ${k + 1}. ${atk.label}.`);
@@ -947,11 +996,13 @@ function step(dt) {
   updateHud();
 }
 
+// ?speed=4 in the address runs the clock faster. It is a testing aid, not a setting.
+const SPEED = Math.max(1, Math.min(8, Math.round(Number(new URLSearchParams(window.location.search).get('speed')) || 1)));
 let lastFrame = null;
 function tick(now) {
   const dt = lastFrame === null ? 0 : Math.min(0.05, (now - lastFrame) / 1000);
   lastFrame = now;
-  if (state.phase === 'play' && !state.paused && modal.hidden) step(dt);
+  if (state.phase === 'play' && !state.paused && modal.hidden) { for (let i = 0; i < SPEED && state.phase === 'play'; i += 1) step(dt); }
   else if (state.phase === 'over') { state.t += dt * 0.3; state.shake = Math.max(0, state.shake - dt); }
   draw();
   window.requestAnimationFrame(tick);
@@ -960,6 +1011,7 @@ function tick(now) {
 // ---------- controls ----------
 $('#btn-pause').addEventListener('click', togglePause);
 $('#btn-restart').addEventListener('click', () => { if (state.challenge) startRun(); });
+$('#btn-levels').addEventListener('click', () => { if (state.levels.length) showLevels(); });
 $('#btn-sound').addEventListener('click', () => {
   state.sound = !state.sound;
   $('#btn-sound').textContent = `SOUND ${state.sound ? 'ON' : 'OFF'}`;
@@ -972,24 +1024,6 @@ $('#btn-log').addEventListener('click', () => {
 });
 
 // ---------- start ----------
-function showTitle() {
-  showModal({
-    title: 'FIREWALL FACEOFF',
-    body: [
-      el('p', { class: 'modal-tagline' }, 'Customers in. Attackers out.'),
-      el('div', { class: 'howto' },
-        el('div', {}, el('span', { class: 'howto-icon good' }, '✓'), 'Drag gates onto your wall'),
-        el('div', {}, el('span', { class: 'howto-icon warn' }, '↓'), 'Top gate is checked first'),
-        el('div', {}, el('span', { class: 'howto-icon bad' }, '♥'), 'Outlast the rival')),
-      reducedMotion() ? el('p', { class: 'modal-small' }, 'This edition is animated and plays in real time. You can pause at any moment and still change your wall. The text edition has no motion.') : null,
-    ],
-    actions: [
-      { label: 'START', primary: true, onClick: startRun },
-      { label: 'TEXT EDITION', href: 'classic.html' },
-    ],
-  });
-}
-
 async function boot() {
   let content = null;
   let loadError = null;
@@ -1001,27 +1035,28 @@ async function boot() {
     loadError = `data/levels.json could not be loaded (${err.message}).`;
   }
   const validation = validateContent(content);
-  const level = content && content.levels ? content.levels[0] : null;
-  const status = level && validation.challenges[level.id] ? validation.challenges[level.id].standard : null;
-  if (loadError || !validation.ok || !status || status.status !== 'ok') {
+  // Each arcade level is built on the richer of its two challenges: more orders, more attacks.
+  const levels = [];
+  const problems = [];
+  for (const level of (content && content.levels) || []) {
+    const v = validation.challenges[level.id] || {};
+    const tier = ['expert', 'standard'].find((t) => v[t] && v[t].status === 'ok');
+    if (tier) levels.push({ level, challenge: level.challenges[tier] });
+    else problems.push(...Object.values(v).flatMap((x) => x.errors || []));
+  }
+  if (loadError || !validation.ok || levels.length === 0) {
     showModal({
       title: 'THE GAME CONTENT COULD NOT BE READ', tone: 'bad',
-      body: [el('ul', { class: 'modal-list' }, [loadError, ...validation.fileErrors, ...((status && status.errors) || [])].filter(Boolean).map((m) => el('li', {}, m)))],
+      body: [el('ul', { class: 'modal-list' }, [loadError, ...validation.fileErrors, ...problems].filter(Boolean).map((m) => el('li', {}, m)))],
       actions: [{ label: 'RETRY', primary: true, onClick: () => window.location.reload() }],
     });
     return;
   }
-  state.level = level;
-  // The arcade level is built on the richer of the two challenges: more orders, more attacks.
-  const expertStatus = validation.challenges[level.id].expert;
-  state.challenge = expertStatus && expertStatus.status === 'ok' ? level.challenges.expert : level.challenges.standard;
-  state.tags = arcadeOf(state.challenge).tags;
-  state.outsideZone = state.challenge.topology.zones[0];
-  state.orders = buildSchedule(state.challenge).orders;
-  showMission();
-  renderTiles();
-  updateHud();
-  showTitle();
+  state.levels = levels;
+  loadProgress();
+  const firstOpen = levels.findIndex((entry) => !state.progress.stars[entry.level.id]);
+  selectLevel(firstOpen === -1 ? 0 : firstOpen);
+  showLevels();
   window.requestAnimationFrame(tick);
 }
 

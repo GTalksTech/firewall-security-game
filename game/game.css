@@ -223,3 +223,28 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .order { border: 2px solid var(--warn); border-radius: 4px; padding: 0.1rem 0.5rem; font-size: 0.86rem; color: var(--warn); }
 .order-rest { border-color: var(--bad); color: var(--bad); }
 .tile-arrow { font-size: 0.7rem; }
+
+/* ================= Levels, who labels, scanner switches ================= */
+.tile-who { background: #06101a; color: #fff; border-radius: 3px; padding: 0.05rem 0.35rem; font-size: 0.72rem; letter-spacing: 0.04em; }
+.tile-kind { font-size: 0.56rem; letter-spacing: 0.08em; opacity: 0.75; margin-right: -0.2rem; }
+#wall-zone { width: min(22rem, 54vw); }
+.gate { display: grid; gap: 2px; }
+.chips { display: flex; gap: 4px; padding-left: 1.6rem; }
+.chip { font: inherit; font-size: 0.66rem; font-weight: 800; letter-spacing: 0.05em; padding: 0.2rem 0.45rem; border-radius: 0 0 5px 5px; border: 2px solid #000; white-space: nowrap; }
+button.chip { cursor: pointer; min-height: 1.7rem; }
+.chip.off { background: #1a2240; color: var(--dim); border-color: #55648c; }
+.chip.on { background: var(--warn); color: #201400; box-shadow: 0 0 10px rgba(255, 209, 102, 0.6); }
+.chip.ghost { background: transparent; color: var(--dim); border: 1px dashed #55648c; font-size: 0.56rem; padding: 0.05rem 0.3rem; }
+#tray .gate { gap: 0; }
+#tray .chips { padding-left: 0.3rem; }
+li.gate:has(.dragging) .chips { visibility: hidden; }
+
+.level-grid { display: grid; gap: 0.6rem; margin: 0.8rem 0 0.2rem; }
+.level-card { display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "num name stars" "num skill stars"; gap: 0.1rem 0.8rem; align-items: center; text-align: left; font: inherit; font-family: var(--mono); color: var(--text); background: #0b1020; border: 2px solid var(--line); border-radius: 6px; padding: 0.7rem 0.9rem; cursor: pointer; }
+.level-card:hover, .level-card:focus-visible { border-color: var(--warn); background: #162048; }
+.level-num { grid-area: num; font-size: 1.8rem; font-weight: 900; color: var(--you); width: 2.4rem; text-align: center; }
+.level-name { grid-area: name; font-weight: 800; letter-spacing: 0.06em; font-size: 0.95rem; }
+.level-skill { grid-area: skill; color: var(--dim); font-size: 0.74rem; }
+.level-stars { grid-area: stars; font-size: 1.3rem; color: #3a4266; letter-spacing: 0.1em; }
+.level-stars.has { color: var(--warn); }
+.howto-icon { font-family: var(--mono); font-weight: 900; }
