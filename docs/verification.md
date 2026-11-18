@@ -478,3 +478,18 @@ The owner asked for better 3D assets and for Blender to be installed and used. B
 Honest assessment from the screenshots: the wagon and ox, the wall towers and the districts are clearly better than the box-and-cone versions, mostly from rounded edges and smooth shading. They are still untextured and script-built, not artist-made. The gatehouse archway is hard to see from the default camera angle.
 
 Not checked: the fallback path when a model is missing, frame rate on real hardware (the wagon is 5,500 triangles and several can be on the map), and loading time on a slow connection if the game is ever hosted.
+
+## Music (2026-11-17)
+
+The owner asked for music. It is synthesized in the browser, with no audio files: `strategy/score.js` holds a 16-bar piece in D minor as note data, and `strategy/music.js` plays it on voices built from oscillators and noise (plucked accompaniment with echo, a flute-like tune, strings, bass, shaker, and a drum-and-pulse layer). The arrangement changes each time round: tune, no tune with a higher accompaniment, tune an octave lower. It is quieter on menus and fades the drum layer in while any unit on the road is forecast to breach or be turned away. Music has its own on/off switch on the home menu and the pause menu, remembered in the browser. It starts on the first click or key press, as browsers require.
+
+| Check | Result |
+|---|---|
+| `node tests/run-node.mjs` | Pass: 174 tests, 7 new for the score. One caught a real fault: an accompaniment note at 1175 Hz, above the tune. Fixed. |
+| Score: every bar adds to four beats, every note is in key, every bar of the tune lands on a note of its chord | Pass |
+| 16 bars rendered offline in the browser, calm | Peak 0.28, no clipping, no silent two-second stretch, no invalid samples |
+| Same with the tension layer up | Peak 0.55, overall level up by a third, energy below 150 Hz roughly doubled, so the layer is audibly different in principle |
+| Music switch on the pause menu | Pass: label flips and the choice is saved |
+| Console errors with music running during play | None |
+
+**Not verified: how it sounds.** The builder cannot hear. The checks show it is in key, in time, continuous and not distorted. Whether it is pleasant, too loud, too repetitive, or fits the game needs a person with speakers.

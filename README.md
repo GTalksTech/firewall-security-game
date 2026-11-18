@@ -22,7 +22,7 @@ A project from **NAF AC6 — Loop Engineering, Spec-Driven Development & the Fut
 
 | Project | Details |
 | --- | --- |
-| Status | All three levels playable in all three versions. 167 automated checks pass; browser checks are recorded in [docs/verification.md](docs/verification.md), including what was not verified |
+| Status | All three levels playable in all three versions. 174 automated checks pass; browser checks are recorded in [docs/verification.md](docs/verification.md), including what was not verified |
 | Networking topic | Next-generation firewall policy: rule order, least privilege, application and user identity, inspection, TLS decryption, DNS filtering, segmentation |
 | Typical session | 15 to 18 turns per level (not yet timed with a first-time player) |
 | Live demo | Not published |
@@ -50,7 +50,8 @@ Open **http://127.0.0.1:8000** in a current desktop browser. Keep the terminal r
 - **The traffic is a fixed timetable** built from the level data. Units take three turns to reach the gatehouse, each attack appears twice, and new requests arrive mid-level. The same play always meets the same traffic.
 - **Losing:** each attack that gets in costs a heart, each piece of wanted traffic turned away costs trust; run out of either and the level restarts. **Stars:** three for a level with nothing wrongly let in or turned away and a final gatehouse the engine agrees is correct.
 - **The 3D map uses three.js**, copied into `vendor/` with its license. The 22 models in `assets/models/` were built in Blender by a script in this repository (`tools/blender/build_models.py`); none came from an asset pack. Nothing is downloaded when you play, and there is nothing to install to play.
-- **No text entry anywhere.** Sound effects are synthesized in the browser and can be switched off on the home menu.
+- **Music and sound are made in the browser; there are no audio files.** The score is written out as notes in `strategy/score.js` (D minor, 16 bars) and played by `strategy/music.js` on plucked, flute, string, bass and drum voices built from oscillators. It is quieter on menus and adds drums and a low pulse while something bad is on its way to your gatehouse. Music and sound effects each have a switch on the home menu.
+- **No text entry anywhere.**
 
 ## What the game simplifies
 
@@ -75,7 +76,7 @@ node tests/run-node.mjs
 
 In the browser, with the server above running, open **http://127.0.0.1:8000/tests/**.
 
-Both run the same 167 checks: the 33 hand-worked rule-base cases from the specification, content validation, session behavior, the arcade timetable, labels, hints and star rules, and the strategy game's turn rules. Expected results in `tests/cases.js` are copied from the specification and are never computed by the engine under test.
+Both run the same 174 checks: the 33 hand-worked rule-base cases from the specification, content validation, session behavior, the arcade timetable, labels, hints and star rules, the strategy game's turn rules, and the music's written score. Expected results in `tests/cases.js` are copied from the specification and are never computed by the engine under test.
 
 ## Project layout
 
@@ -84,6 +85,7 @@ index.html                       Strategy game shell
 strategy/main.js, strategy.css   Strategy game: screens, gatehouse panel, advisor, guide
 strategy/board.js                The 3D hex map (draws only; decides nothing)
 strategy/turns.js                Turn timetable and turn rules (no screen; tested)
+strategy/score.js, music.js      The music: the notes (tested), and the synthesizer that plays them
 vendor/                          three.js, its glTF loader, and its license
 assets/models/                   The 3D models (.glb), built by the script below
 tools/blender/build_models.py    Rebuilds every model: blender --background --python tools/blender/build_models.py
@@ -106,7 +108,8 @@ To add or change a level, edit `data/levels.json` and add its hand-worked cases 
 - Made for a desktop or laptop screen. On a phone the map is too small to be useful.
 - The 3D models were built by a script driving Blender, not sculpted by an artist. They have bevels and smooth shading but no textures.
 - Needs a browser with WebGL; if it is missing, the game offers the other two versions.
-- Tested in one browser engine (Chromium). Not tested with a screen reader or touch. Sound was not listened to.
+- Tested in one browser engine (Chromium). Not tested with a screen reader or touch.
+- Nobody has listened to the music or the sound effects. The notes are checked to be in key and in time and the output is checked not to be silent or distorted, but whether it sounds good is unknown.
 - The turn-by-turn battle mode from the original idea is not built.
 - See [docs/verification.md](docs/verification.md) for the full list of checks that were not run.
 

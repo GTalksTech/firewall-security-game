@@ -13,6 +13,7 @@ import {
 } from '../game/logic.js';
 import { RULES, newGame, spawnTurn, endTurn, forecast, activeRequests, traceFlow } from './turns.js';
 import { createBoard, loadModels } from './board.js';
+import { createMusic } from './music.js';
 
 const $ = (sel) => document.querySelector(sel);
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -66,6 +67,34 @@ const SFX = {
   win: () => [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, 0.18), i * 120)),
   lose: () => [330, 262, 196].forEach((f, i) => setTimeout(() => beep(f, 0.25, 'sawtooth', 0.05), i * 170)),
 };
+
+// ---------- music ----------
+// Starts on the first click or key press, because browsers do not let a page make sound before that.
+let music = null;
+const MUSIC_STORE = 'firewall-faceoff-music';
+function musicWanted() { try { return window.localStorage.getItem(MUSIC_STORE) !== 'off'; } catch (err) { return true; } }
+function startMusic() {
+  if (!musicWanted() || (music && music.playing())) return;
+  try {
+    if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)();
+    if (audio.state === 'suspended') audio.resume();
+    if (!music) music = createMusic(audio);
+    music.start();
+    setMusicMood();
+  } catch (err) { /* music is optional */ }
+}
+function setMusicWanted(on) {
+  try { window.localStorage.setItem(MUSIC_STORE, on ? 'on' : 'off'); } catch (err) { /* optional */ }
+  if (on) startMusic(); else if (music) music.stop();
+}
+// Calm while everything is handled, tense while something bad is on its way, quieter on the menus.
+function setMusicMood() {
+  if (!music) return;
+  if (!$('#screen').hidden || !state.game) { music.setMood('menu'); return; }
+  const alarm = state.game.units.some((u) => { const f = fc(u); return f.outcome === 'breach' || f.outcome === 'turned-away'; });
+  music.setMood(alarm ? 'tense' : 'calm');
+}
+for (const type of ['pointerdown', 'keydown']) window.addEventListener(type, startMusic, { passive: true });
 
 // ---------- small helpers ----------
 function announce(text) { const n = $('#live'); n.textContent = ''; setTimeout(() => { n.textContent = text; }, 30); }
@@ -447,6 +476,7 @@ function render(opts = {}) {
   renderAdvisor();
   syncBoard();
   reportChange();
+  setMusicMood();
   if (opts.focus) { const t = $(opts.focus); if (t && !t.disabled) t.focus(); }
 }
 
@@ -527,10 +557,11 @@ function showScreen({ title, body, actions, solid }) {
   $('#screen').className = solid ? 'solid' : '';
   $('#screen').hidden = false;
   for (const id of ['#topbar', '#map', '#side']) $(id).inert = true;
+  setMusicMood();
   const first = $('#screen [data-autofocus]') || $('#screen-actions .btn') || $('#screen button, #screen a');
   if (first) first.focus();
 }
-function closeScreen() { $('#screen').hidden = true; for (const id of ['#topbar', '#map', '#side']) $(id).inert = false; }
+function closeScreen() { $('#screen').hidden = true; for (const id of ['#topbar', '#map', '#side']) $(id).inert = false; setMusicMood(); }
 const btn = (label, onclick, minor, extra = {}) => el('button', { type: 'button', class: `btn${minor ? ' minor' : ''}`, onclick, ...extra }, label);
 
 function nextLevelIndex() {
@@ -548,7 +579,8 @@ function showHome() {
         el('button', { type: 'button', class: 'btn', 'data-autofocus': true, onclick: () => showBriefing(next) }, started ? `Continue: Level ${next + 1}` : 'Play', el('small', {}, started ? state.levels[next].level.title : 'Starts with a guided first level')),
         el('button', { type: 'button', class: 'btn minor', onclick: showLevels }, 'Choose a level'),
         el('button', { type: 'button', class: 'btn minor', onclick: () => showHowTo(showHome) }, 'How to play'),
-        el('button', { type: 'button', class: 'btn minor', id: 'sound-btn', 'aria-pressed': String(state.sound), onclick: () => { state.sound = !state.sound; showHome(); } }, `Sound: ${state.sound ? 'on' : 'off'}`)),
+        el('button', { type: 'button', class: 'btn minor', id: 'music-btn', 'aria-pressed': String(musicWanted()), onclick: () => { setMusicWanted(!musicWanted()); showHome(); } }, `Music: ${musicWanted() ? 'on' : 'off'}`),
+        el('button', { type: 'button', class: 'btn minor', id: 'sound-btn', 'aria-pressed': String(state.sound), onclick: () => { state.sound = !state.sound; showHome(); } }, `Sound effects: ${state.sound ? 'on' : 'off'}`)),
       el('p', { class: 'editions' }, 'Other versions of the same lessons: ', el('a', { href: 'arcade.html' }, 'real-time arcade'), ' · ', el('a', { href: 'classic.html' }, 'text only, no motion')),
     ],
     actions: [],
@@ -601,7 +633,7 @@ function showMenu() {
   showScreen({
     title: 'Paused',
     body: [el('p', {}, `Level ${state.index + 1}: ${state.level.title}. Turn ${state.game.turn} of ${state.game.plan.lastTurn}.`)],
-    actions: [btn('Back to the game', closeScreen, false), btn('Restart level', () => showBriefing(state.index), true), btn('How to play', () => showHowTo(showMenu), true), btn('Home', showHome, true)],
+    actions: [btn('Back to the game', closeScreen, false), btn(`Music: ${musicWanted() ? 'on' : 'off'}`, () => { setMusicWanted(!musicWanted()); showMenu(); }, true), btn('Restart level', () => showBriefing(state.index), true), btn('How to play', () => showHowTo(showMenu), true), btn('Home', showHome, true)],
   });
 }
 $('#btn-menu').addEventListener('click', showMenu);

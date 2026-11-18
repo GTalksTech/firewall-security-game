@@ -49,12 +49,12 @@ build:
     - "NAF AC6 workshop StarterKit (CONSTITUTION.md, SPEC.md, PLAN.md) and LAB README"
   skills_and_plugins: [speckit-constitution, speckit-specify, speckit-clarify, speckit-plan, speckit-tasks, speckit-analyze, speckit-implement, ralph-loop plugin]
   other_tools: [three.js r160 (MIT) for the 3D map, Blender 5.3 run headless to build the 3D models, Node.js 26 for the test runner, Python http.server, Chromium via Playwright, curl, GitHub CLI]
-  human_prompts: 26
+  human_prompts: 27
   usage:
     input_tokens: unknown
     output_tokens: unknown
     cost_note: unknown
-  ai_generated_assets: ["3D models: 22 .glb files built by a Blender script the build agent wrote (tools/blender/build_models.py); no asset packs or downloaded models", "pixel art and SVG: drawn in code by the build agent", "audio: synthesized at runtime with Web Audio, no files", "images from an image generator: none"]
+  ai_generated_assets: ["3D models: 22 .glb files built by a Blender script the build agent wrote (tools/blender/build_models.py); no asset packs or downloaded models", "pixel art and SVG: drawn in code by the build agent", "music and sound: a 16-bar score written by the build agent as note data and synthesized at runtime with Web Audio; no audio files", "images from an image generator: none"]
 
 runtime:
   kind: static-web
@@ -73,7 +73,7 @@ runtime:
 
 verification:
   tests: "node tests/run-node.mjs"
-  tests_passing: 167
+  tests_passing: 174
   facts_sourced_from:
     - "NIST SP 800-41 Rev. 1, sections 2.1.2, 2.1.3, 2.3, 4, 4.1.1, 4.2, 4.3, 5.2.2"
     - "NIST SP 800-207, section 2.1"
