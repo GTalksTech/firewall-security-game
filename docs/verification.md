@@ -502,7 +502,7 @@ The owner asked for music. It is synthesized in the browser, with no audio files
 
 **Loading.** One playthrough logged a dropped connection on a model file: the local Python server was being asked for 32 files at once. Models and textures now load a few at a time and retry once. A piece that still fails falls back to a code-built shape.
 
-**ARCADE.md.** Location (Ohio) and organization (G Talks Tech) added. Links are still empty.
+**ARCADE.md.** Location (Ohio) added. Organization and links are left empty at the owner's request.
 
 | Check | Result |
 |---|---|

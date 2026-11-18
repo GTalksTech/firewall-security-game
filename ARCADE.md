@@ -21,7 +21,7 @@ creator:
   name: "Garrett Masters"
   github: "GTalksTech"
   location: "Ohio"
-  organization: "G Talks Tech"
+  organization: ""
   links: []
   first_spec_project: true
   workshop: "NAF AC6"
