@@ -127,6 +127,25 @@ def gable(w, d, h, x, up, z, material, turn=False, over=0.04):
     return mesh('roof', [(x + p[0], up + p[1], z + p[2]) for p in v], f, material, 0.006, False)
 
 
+def box_uvs(obj):
+    """Texture coordinates by box projection: each face is mapped flat along the axis it
+    faces, one texture repeat per unit of length. Every part of every model then shows a
+    texture at the same size, and the game sets how often each texture repeats."""
+    me = obj.data
+    uv = me.uv_layers.new(name='UVMap') if not me.uv_layers else me.uv_layers[0]
+    for poly in me.polygons:
+        n = poly.normal
+        ax, ay, az = abs(n.x), abs(n.y), abs(n.z)
+        for li in poly.loop_indices:
+            co = me.vertices[me.loops[li].vertex_index].co
+            if az >= ax and az >= ay:
+                uv.data[li].uv = (co.x, co.y)          # tops and undersides
+            elif ax >= ay:
+                uv.data[li].uv = (co.y, co.z)          # faces looking along x
+            else:
+                uv.data[li].uv = (co.x, co.z)          # faces looking along y
+
+
 def export(name):
     meshes = [o for o in bpy.context.scene.objects if o.type == 'MESH']
     for o in bpy.context.selected_objects:
@@ -139,6 +158,7 @@ def export(name):
     obj = bpy.context.active_object
     obj.name = name
     bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    box_uvs(obj)
     os.makedirs(OUT, exist_ok=True)
     path = os.path.join(OUT, name + '.glb')
     bpy.ops.export_scene.gltf(filepath=path, export_format='GLB', export_apply=True, export_animations=False,

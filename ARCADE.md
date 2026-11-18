@@ -12,7 +12,7 @@ game:
   play_minutes: 15
   levels: 3
   card_image: assets/card.png
-  card_image_alt: "A 3D hex map with mountains, fields and a battlemented wall. Ox-drawn wagons and horned raiders approach the gatehouse under banners reading GETS IN, BLOCKED and WILL BREACH; one raider is traced with a dotted route to a dark spiked fort; a side panel lists the firewall rules as numbered gates."
+  card_image_alt: "A 3D hex map with snow-capped mountains, fields and a stone-block wall with a gatehouse. An ox-drawn wagon approaches along a road under a banner reading GETS IN; a database district and an application-server district stand beyond the wall; a side panel lists firewall rules as gates to add."
   repo: https://github.com/GTalksTech/firewall-security-game
   repo_path: ""
   license: Apache-2.0
@@ -20,8 +20,8 @@ game:
 creator:
   name: "Garrett Masters"
   github: "GTalksTech"
-  location: ""
-  organization: ""
+  location: "Ohio"
+  organization: "G Talks Tech"
   links: []
   first_spec_project: true
   workshop: "NAF AC6"
@@ -49,12 +49,12 @@ build:
     - "NAF AC6 workshop StarterKit (CONSTITUTION.md, SPEC.md, PLAN.md) and LAB README"
   skills_and_plugins: [speckit-constitution, speckit-specify, speckit-clarify, speckit-plan, speckit-tasks, speckit-analyze, speckit-implement, ralph-loop plugin]
   other_tools: [three.js r160 (MIT) for the 3D map, Blender 5.3 run headless to build the 3D models, Node.js 26 for the test runner, Python http.server, Chromium via Playwright, curl, GitHub CLI]
-  human_prompts: 27
+  human_prompts: 29
   usage:
     input_tokens: unknown
     output_tokens: unknown
     cost_note: unknown
-  ai_generated_assets: ["3D models: 22 .glb files built by a Blender script the build agent wrote (tools/blender/build_models.py); no asset packs or downloaded models", "pixel art and SVG: drawn in code by the build agent", "music and sound: a 16-bar score written by the build agent as note data and synthesized at runtime with Web Audio; no audio files", "images from an image generator: none"]
+  ai_generated_assets: ["3D models: 22 .glb files built by a Blender script the build agent wrote (tools/blender/build_models.py); no asset packs or downloaded models", "textures: 10 PNG surface textures drawn by a script the build agent wrote (tools/build_textures.py); no downloaded images", "pixel art and SVG: drawn in code by the build agent", "music and sound: three 16-bar pieces (one per level) plus win and lose phrases, written by the build agent as note data and synthesized at runtime with Web Audio; no audio files", "images from an image generator: none"]
 
 runtime:
   kind: static-web
@@ -73,7 +73,7 @@ runtime:
 
 verification:
   tests: "node tests/run-node.mjs"
-  tests_passing: 174
+  tests_passing: 193
   facts_sourced_from:
     - "NIST SP 800-41 Rev. 1, sections 2.1.2, 2.1.3, 2.3, 4, 4.1.1, 4.2, 4.3, 5.2.2"
     - "NIST SP 800-207, section 2.1"
@@ -85,7 +85,7 @@ verification:
     - "Addresses match exactly; no subnet matching"
     - "NAT, routing, VPN, high availability, IPv6, logging, URL filtering, DNS over HTTPS and decryption exemptions are not modeled"
     - "The strategy game was designed and built in one sitting after play feedback; its specification was written alongside the build, not before it"
-    - "3D models are script-built in Blender, untextured; no person has play-tested it; a phone screen is too small for it"
+    - "3D models and textures are script-built, not artist-made; a phone screen is too small for it"
     - "No human first-time player, screen reader, or second browser engine has tested it"
 ---
 

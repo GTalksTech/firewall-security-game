@@ -14,6 +14,7 @@ import {
 import { RULES, newGame, spawnTurn, endTurn, forecast, activeRequests, traceFlow } from './turns.js';
 import { createBoard, loadModels } from './board.js';
 import { createMusic } from './music.js';
+import { PIECE_FOR_LEVEL } from './score.js';
 
 const $ = (sel) => document.querySelector(sel);
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -89,7 +90,8 @@ function setMusicWanted(on) {
 }
 // Calm while everything is handled, tense while something bad is on its way, quieter on the menus.
 function setMusicMood() {
-  if (!music) return;
+  if (!music || music.mood() === 'sting') return;
+  if (state.level) music.setPiece(PIECE_FOR_LEVEL[state.index % PIECE_FOR_LEVEL.length]);
   if (!$('#screen').hidden || !state.game) { music.setMood('menu'); return; }
   const alarm = state.game.units.some((u) => { const f = fc(u); return f.outcome === 'breach' || f.outcome === 'turned-away'; });
   music.setMood(alarm ? 'tense' : 'calm');
@@ -643,7 +645,7 @@ function finish() {
   const { c, game } = state;
   const won = game.over === 'win';
   if (!won) {
-    SFX.lose();
+    if (music && music.playing()) music.sting('lose'); else SFX.lose();
     const text = game.over === 'breach' ? 'Too many attacks got through your gatehouse.' : `You turned away too much wanted traffic, and ${state.cfg.friend.toLowerCase()} gave up.`;
     announce(text);
     setTimeout(() => showScreen({
@@ -659,7 +661,7 @@ function finish() {
   state.progress.stars[id] = Math.max(state.progress.stars[id] || 0, stars);
   state.progress.best[id] = Math.max(state.progress.best[id] || 0, game.score);
   saveProgress();
-  SFX.win();
+  if (music && music.playing()) music.sting('win'); else SFX.win();
   const hasNext = state.index + 1 < state.levels.length;
   const why = stars === 3 ? 'A perfect defense: nothing got in that was not asked for, and nothing wanted was turned away.'
     : !result.completed ? 'You survived, but your final gatehouse still lets an attack in or blocks something wanted.'
@@ -698,6 +700,7 @@ function selectLevel(i) {
   state.selected = null;
   state.busy = false;
   state.guide = { on: i === 0 && !state.progress.stars[entry.level.id], i: 0, shown: false };
+  if (music) music.endSting();
   syncShown();
   const zones = state.c.topology.zones;
   state.board.load({

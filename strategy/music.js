@@ -1,12 +1,14 @@
 // Plays the score in score.js with instruments made from oscillators and noise.
 // No audio files. Works on a live AudioContext and on an OfflineAudioContext (for checks).
 
-import { TEMPO, BEATS_PER_BAR, PROGRESSION, MELODY, CHORDS, frequency, arpeggio, bassNote } from './score.js';
+import { BEATS_PER_BAR, PIECES, CHORDS, frequency, arpeggio, bassNote, stingNotes } from './score.js';
 
-const BEAT = 60 / TEMPO;
-const BAR = BEAT * BEATS_PER_BAR;
-
-export function createMusic(ctx) {
+export function createMusic(ctx, firstPiece = 'storefront') {
+  let pieceName = firstPiece;
+  let piece = PIECES[pieceName];
+  let BEAT = 60 / piece.tempo;
+  let BAR = BEAT * BEATS_PER_BAR;
+  function usePiece(name) { pieceName = name; piece = PIECES[name]; BEAT = 60 / piece.tempo; BAR = BEAT * BEATS_PER_BAR; }
   const master = ctx.createGain();
   master.gain.value = 0;
   const squash = ctx.createDynamicsCompressor();
@@ -132,9 +134,9 @@ export function createMusic(ctx) {
   // ----- one bar -----
   // `pass` counts trips through the 16 bars, so the arrangement changes each time round.
   function scheduleBar(index, t) {
-    const bar = index % PROGRESSION.length;
-    const pass = Math.floor(index / PROGRESSION.length);
-    const chord = PROGRESSION[bar];
+    const bar = index % piece.progression.length;
+    const pass = Math.floor(index / piece.progression.length);
+    const chord = piece.progression[bar];
     const [root, third, fifth] = CHORDS[chord];
     strings([`${root}3`, `${third}4`, `${fifth}4`], t, BAR, calm);
     bass(bassNote(chord), t, BEAT * 1.8, calm);
@@ -143,7 +145,7 @@ export function createMusic(ctx) {
     for (const b of [1, 3]) shaker(t + b * BEAT, calm);
     if (pass % 3 !== 1) {                       // the tune rests every third time round
       let at = t;
-      for (const [note, beats] of MELODY[bar]) {
+      for (const [note, beats] of piece.melody[bar]) {
         const shifted = pass % 3 === 2 ? note.replace(/\d+$/, (o) => String(Number(o) - 1)) : note;
         flute(shifted, at, beats * BEAT * 0.95, tune);
         at += beats * BEAT;
@@ -160,9 +162,12 @@ export function createMusic(ctx) {
   let nextBar = 0;
   let nextTime = 0;
   let mood = 'calm';
-  let volume = 0.7;
+  const volume = 0.7;
   function tick() {
-    while (nextTime < ctx.currentTime + 0.4) { scheduleBar(nextBar, nextTime); nextBar += 1; nextTime += BAR; }
+    while (nextTime < ctx.currentTime + 0.4) {
+      if (pending) { usePiece(pending); pending = null; nextBar = 0; echo.delayTime.setValueAtTime(BEAT * 0.75, nextTime); }
+      scheduleBar(nextBar, nextTime); nextBar += 1; nextTime += BAR;
+    }
   }
   function fade(param, value, seconds) {
     const now = ctx.currentTime;
@@ -170,8 +175,30 @@ export function createMusic(ctx) {
     param.setValueAtTime(param.value, now);
     param.linearRampToValueAtTime(value, now + seconds);
   }
+  let pending = null;
   return {
-    scheduleBar, BAR,
+    scheduleBar,
+    get BAR() { return BAR; },
+    // Changes to another piece at the next bar line.
+    setPiece(name) { if (PIECES[name] && name !== pieceName) pending = name; },
+    piece: () => pending || pieceName,
+    usePiece,
+    // A short phrase over the top when a level ends; the rest of the music drops back for it.
+    sting(kind) {
+      const t = ctx.currentTime + 0.05;
+      const notes = stingNotes(kind, pieceName);
+      const beat = kind === 'win' ? 0.24 : 0.5;
+      for (const [node, level] of [[calm, 0.25], [tune, 0.0], [tense, 0.0]]) {
+        node.gain.cancelScheduledValues(t);
+        node.gain.setValueAtTime(node.gain.value, t);
+        node.gain.linearRampToValueAtTime(level, t + 0.15);
+      }
+      for (const n of notes) {
+        flute(n.note, t + n.start * beat, n.length * beat, master, 0.16);
+        pluck(n.note, t + n.start * beat, master, 0.14);
+      }
+      mood = 'sting';
+    },
     start() {
       if (timer) return;
       nextBar = 0;
@@ -196,6 +223,8 @@ export function createMusic(ctx) {
       fade(tune.gain, next === 'tense' ? 0.6 : 1, 1.2);
     },
     mood: () => mood,
+    // Call when the next level begins, so the mood can be set again after a win or lose phrase.
+    endSting() { if (mood === 'sting') mood = 'none'; },
     // For offline checks: set the layers directly.
     setLevels(master_, tense_) { master.gain.value = master_; tense.gain.value = tense_; },
   };

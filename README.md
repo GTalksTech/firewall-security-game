@@ -2,7 +2,7 @@
 
 **A turn-based strategy game about firewall rules. Your network is a city on a hex map, your firewall is its gatehouse, and every rule is a gate. Let the right traffic in, turn the rest away, and outlast the rival.**
 
-![Level 2: an attack carrying malware is being traced to a hostile site, and the advisor says which switch would stop it](assets/card.png)
+![Level 3: a wagon of wanted traffic approaches the gatehouse while the advisor says which request is not met yet](assets/card.png)
 
 Firewall Security Faceoff is for network engineers and students. Traffic marches across a 3D hex map toward your gatehouse: wagons are wanted traffic, raiders are attacks, drifters are traffic nobody asked for. Every unit carries a banner saying what it is and what your gates, as they stand right now, will do with it. Each turn you make up to three changes to your gates, then end the turn and everything moves one step. Gates are checked from the top down, the first match decides, and anything no gate allows is turned away. The firewall is vendor-neutral.
 
@@ -22,7 +22,7 @@ A project from **NAF AC6 — Loop Engineering, Spec-Driven Development & the Fut
 
 | Project | Details |
 | --- | --- |
-| Status | All three levels playable in all three versions. 174 automated checks pass; browser checks are recorded in [docs/verification.md](docs/verification.md), including what was not verified |
+| Status | All three levels playable in all three versions. 193 automated checks pass; browser checks are recorded in [docs/verification.md](docs/verification.md), including what was not verified |
 | Networking topic | Next-generation firewall policy: rule order, least privilege, application and user identity, inspection, TLS decryption, DNS filtering, segmentation |
 | Typical session | 15 to 18 turns per level (not yet timed with a first-time player) |
 | Live demo | Not published |
@@ -49,8 +49,8 @@ Open **http://127.0.0.1:8000** in a current desktop browser. Keep the terminal r
 - **Every verdict comes from one rule engine** (`engine/rules.js`). The banners, the advisor and the end-of-turn results all ask it; nothing else decides whether traffic gets in.
 - **The traffic is a fixed timetable** built from the level data. Units take three turns to reach the gatehouse, each attack appears twice, and new requests arrive mid-level. The same play always meets the same traffic.
 - **Losing:** each attack that gets in costs a heart, each piece of wanted traffic turned away costs trust; run out of either and the level restarts. **Stars:** three for a level with nothing wrongly let in or turned away and a final gatehouse the engine agrees is correct.
-- **The 3D map uses three.js**, copied into `vendor/` with its license. The 22 models in `assets/models/` were built in Blender by a script in this repository (`tools/blender/build_models.py`); none came from an asset pack. Nothing is downloaded when you play, and there is nothing to install to play.
-- **Music and sound are made in the browser; there are no audio files.** The score is written out as notes in `strategy/score.js` (D minor, 16 bars) and played by `strategy/music.js` on plucked, flute, string, bass and drum voices built from oscillators. It is quieter on menus and adds drums and a low pulse while something bad is on its way to your gatehouse. Music and sound effects each have a switch on the home menu.
+- **The 3D map uses three.js**, copied into `vendor/` with its license. The 22 models in `assets/models/` were built in Blender by a script in this repository (`tools/blender/build_models.py`), and the 10 surface textures in `assets/textures/` (stone, brick, wood, roof tiles, plaster, cloth, rock, foliage, grass, soil) are drawn by `tools/build_textures.py`; none came from an asset pack. Nothing is downloaded when you play, and there is nothing to install to play.
+- **Music and sound are made in the browser; there are no audio files.** The score is written out as notes in `strategy/score.js`: three 16-bar pieces, one per level (D minor, F major, E minor), plus short win and lose phrases. It is played by `strategy/music.js` on plucked, flute, string, bass and drum voices built from oscillators. It is quieter on menus and adds drums and a low pulse while something bad is on its way to your gatehouse. Music and sound effects each have a switch on the home menu.
 - **No text entry anywhere.**
 
 ## What the game simplifies
@@ -76,7 +76,7 @@ node tests/run-node.mjs
 
 In the browser, with the server above running, open **http://127.0.0.1:8000/tests/**.
 
-Both run the same 174 checks: the 33 hand-worked rule-base cases from the specification, content validation, session behavior, the arcade timetable, labels, hints and star rules, the strategy game's turn rules, and the music's written score. Expected results in `tests/cases.js` are copied from the specification and are never computed by the engine under test.
+Both run the same 193 checks: the 33 hand-worked rule-base cases from the specification, content validation, session behavior, the arcade timetable, labels, hints and star rules, the strategy game's turn rules, and the music's written score. Expected results in `tests/cases.js` are copied from the specification and are never computed by the engine under test.
 
 ## Project layout
 
@@ -87,7 +87,8 @@ strategy/board.js                The 3D hex map (draws only; decides nothing)
 strategy/turns.js                Turn timetable and turn rules (no screen; tested)
 strategy/score.js, music.js      The music: the notes (tested), and the synthesizer that plays them
 vendor/                          three.js, its glTF loader, and its license
-assets/models/                   The 3D models (.glb), built by the script below
+assets/models/, assets/textures/ The 3D models (.glb) and surface textures (.png), built by the scripts below
+tools/build_textures.py          Redraws every texture: python3 tools/build_textures.py
 tools/blender/build_models.py    Rebuilds every model: blender --background --python tools/blender/build_models.py
 arcade.html, game/               Real-time arcade version; game/logic.js is shared and tested
 classic.html, style.css, main.js, ui/   Text version
@@ -106,7 +107,7 @@ To add or change a level, edit `data/levels.json` and add its hand-worked cases 
 
 - No person has play-tested the strategy game yet. It was driven by an automated browser, which shows it works and can be won, not that it is fun or well paced.
 - Made for a desktop or laptop screen. On a phone the map is too small to be useful.
-- The 3D models were built by a script driving Blender, not sculpted by an artist. They have bevels and smooth shading but no textures.
+- The 3D models were built by a script driving Blender, not sculpted by an artist. The textures are simple repeating patterns drawn by a script.
 - Needs a browser with WebGL; if it is missing, the game offers the other two versions.
 - Tested in one browser engine (Chromium). Not tested with a screen reader or touch.
 - Nobody has listened to the music or the sound effects. The notes are checked to be in key and in time and the output is checked not to be silent or distorted, but whether it sounds good is unknown.

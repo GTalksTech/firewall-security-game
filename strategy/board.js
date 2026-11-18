@@ -11,16 +11,58 @@ const MODEL_NAMES = [
   'district-web', 'district-mail', 'district-jump', 'district-db', 'district-app', 'district-dns', 'district-site', 'district-hostile', 'district-rival',
   'wall-tower', 'wall-segment', 'gatehouse', 'tile', 'tree-pine', 'tree-oak', 'mountain', 'hills', 'barn', 'boulder',
 ];
-export async function loadModels(base = 'assets/models/') {
+// Surface textures are drawn by tools/build_textures.py. Each is a grey detail image that the
+// model's own colour is multiplied with. A material's name decides which one it gets, and
+// the number is how many times the texture repeats per unit of length.
+const SURFACES = [
+  [/^(stone|plaza|paving|step|marble|obsidian|chimney|silo)/, 'stone', 3],
+  [/^brick/, 'brick', 3],
+  [/^(wood|door|pole|shaft|staff|trunk|barn|spoke)/, 'wood', 4],
+  [/^(roof|dome|cap|awning)/, 'shingle', 5],
+  [/^plaster/, 'plaster', 2],
+  [/^(canvas|sack|flag|cloak|cape|robe|hood|pennant|sign|hoop)/, 'cloth', 8],
+  [/^(rock|hill|boulder)/, 'rock', 1.5],
+  [/^(leaf|pine)/, 'foliage', 3],
+];
+const TEXTURE_NAMES = { stone: 3, brick: 3, wood: 4, shingle: 5, plaster: 2, cloth: 8, rock: 1.5, foliage: 3, grass: 1.2, soil: 1.2 };
+const TEXTURES = {};
+// Loads one file, trying again once if the server drops the connection. Resolves to null if it cannot.
+function fetchWith(loader, url) {
+  const once = () => new Promise((resolve) => loader.load(url, resolve, undefined, () => resolve(null)));
+  return once().then((got) => got || new Promise((r) => setTimeout(r, 250)).then(once));
+}
+// Runs the jobs a few at a time; a simple local server drops connections if asked for everything at once.
+async function inBatches(items, size, job) {
+  for (let i = 0; i < items.length; i += size) await Promise.all(items.slice(i, i + size).map(job));
+}
+function loadTextures(base) {
+  const loader = new THREE.TextureLoader();
+  return inBatches(Object.entries(TEXTURE_NAMES), 5, async ([name, repeat]) => {
+    const tex = await fetchWith(loader, `${base}${name}.png`);
+    if (!tex) return;
+    tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(repeat, repeat);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 4;
+    TEXTURES[name] = tex;
+  });
+}
+function texture(material) {
+  if (material.map || (material.emissiveIntensity > 0 && material.emissive && material.emissive.getHex() !== 0)) return;
+  const hit = SURFACES.find(([pattern]) => pattern.test(material.name || ''));
+  if (hit && TEXTURES[hit[1]]) { material.map = TEXTURES[hit[1]]; material.needsUpdate = true; }
+}
+
+export async function loadModels(base = 'assets/models/', textureBase = 'assets/textures/') {
+  await loadTextures(textureBase);
   const loader = new GLTFLoader();
   const models = {};
-  await Promise.all(MODEL_NAMES.map((name) => new Promise((resolve) => {
-    loader.load(`${base}${name}.glb`, (gltf) => {
-      gltf.scene.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-      models[name] = gltf.scene;
-      resolve();
-    }, undefined, () => resolve());
-  })));
+  await inBatches(MODEL_NAMES, 6, async (name) => {
+    const gltf = await fetchWith(loader, `${base}${name}.glb`);
+    if (!gltf) return;
+    gltf.scene.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; texture(o.material); } });
+    models[name] = gltf.scene;
+  });
   return models;
 }
 let MODELS = {};
@@ -241,7 +283,7 @@ export function createBoard(container, labelLayer, models = {}) {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.02;
+  renderer.toneMappingExposure = 1.12;
   container.prepend(renderer.domElement);
   renderer.domElement.setAttribute('aria-hidden', 'true');
 
@@ -282,7 +324,7 @@ export function createBoard(container, labelLayer, models = {}) {
   const mats = {};
   const m = (color) => (mats[color] = mats[color] || mat(color));
   const stds = {};
-  const std = (color, rough) => (stds[color] = stds[color] || new THREE.MeshStandardMaterial({ color, roughness: rough }));
+  const std = (color, rough, tex) => (stds[`${color}${tex}`] = stds[`${color}${tex}`] || new THREE.MeshStandardMaterial({ color, roughness: rough, map: TEXTURES[tex] || null }));
   for (let row = 0; row < ROWS; row += 1) {
     for (let col = 0; col < COLS; col += 1) {
       const name = terrainAt(col, row);
@@ -307,7 +349,8 @@ export function createBoard(container, labelLayer, models = {}) {
         tileModel.traverse((o) => {
           if (!o.isMesh) return;
           o.castShadow = false;
-          o.material = o.material.name === 'top' ? std(topColor, 0.9) : std(sideColor, 0.95);
+          const topTex = name === 'stone' ? 'stone' : ['grass', 'forest', 'farm', 'mountain', 'hills'].includes(name) ? 'grass' : 'soil';
+          o.material = o.material.name === 'top' ? std(topColor, 0.9, topTex) : std(sideColor, 0.95, 'rock');
         });
         tileModel.scale.set(S * 0.985, top, S * 0.985);
         tileModel.position.set(p.x, 0, p.z);

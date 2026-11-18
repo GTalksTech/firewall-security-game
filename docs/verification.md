@@ -493,3 +493,26 @@ The owner asked for music. It is synthesized in the browser, with no audio files
 | Console errors with music running during play | None |
 
 **Not verified: how it sounds.** The builder cannot hear. The checks show it is in key, in time, continuous and not distorted. Whether it is pleasant, too loud, too repetitive, or fits the game needs a person with speakers.
+
+## Textures, a piece of music per level, and Arcade details (2026-11-17)
+
+**Textures.** `tools/build_textures.py` draws ten seamless grey detail textures (stone blocks, brick, wood planks, roof tiles, plaster, cloth, rock, foliage, grass, soil) with no libraries and writes them to `assets/textures/` (212 KB). The Blender script now gives every model box-projected texture coordinates, so a texture appears at the same size on every part. The game picks a texture for each material from its name and multiplies it with the material's colour. Hex tiles get grass, soil or stone on top and rock on the sides.
+
+**Music.** There are now three 16-bar pieces, one per level (D minor at 92, F major at 104, E minor at 98), and a rising phrase on a win and a falling one on a loss, in the key of the level's piece. The piece changes at the next bar line when the level changes.
+
+**Loading.** One playthrough logged a dropped connection on a model file: the local Python server was being asked for 32 files at once. Models and textures now load a few at a time and retry once. A piece that still fails falls back to a code-built shape.
+
+**ARCADE.md.** Location (Ohio) and organization (G Talks Tech) added. Links are still empty.
+
+| Check | Result |
+|---|---|
+| `python3 tools/build_textures.py` | Pass: 10 textures written; stone and roof-tile textures inspected by eye |
+| `blender --background --python tools/blender/build_models.py` | Pass: 22 models, now with texture coordinates |
+| `node tests/run-node.mjs` | Pass: 193 tests. The score tests now run on all three pieces and the two phrases. One caught a real fault: the win phrase did not rise in F major (the fifth was written below the root). Fixed. |
+| Each piece rendered offline in the browser, 16 bars | No clipping (peaks 0.34 to 0.38), no silent two-second stretch, no invalid samples; the three are within 2% of each other in loudness |
+| All three levels won with three stars through the real interface, with music playing | Pass |
+| Five fresh page loads after the loading fix | No failed requests |
+| Level 3 lost on purpose, then retried | Pass: the lose phrase path runs and the music mood resets for the retry; no console errors |
+| Screenshots at 1440x900, map distance and close on the gatehouse | Stone blocks, roof tiles and ground texture are visible and at a consistent size |
+
+Not verified: how any of the music sounds; how the textures look on a real graphics card at other zoom levels; the fallback when a model fails twice.
