@@ -100,7 +100,7 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 button.gate { width: 100%; text-align: left; }
 button.gate:hover:not(:disabled) { background: #fff3cf; }
 .gate.try { outline: 3px dashed #d98a00; outline-offset: 1px; }
-.gate .try-tag { font-size: 0.68rem; font-weight: 900; background: #d98a00; color: #fff; border-radius: 3px; padding: 0 0.3rem; }
+.gate .try-tag { font-size: 0.68rem; font-weight: 900; background: #d98a00; color: var(--ink); border-radius: 3px; padding: 0 0.3rem; }
 .gate .ghost { font-size: 0.66rem; color: var(--dim); border: 1px dashed var(--line); border-radius: 999px; padding: 0 0.35rem; }
 .wall-empty { border: 2px dashed var(--line); border-radius: 4px; padding: 0.7rem; text-align: center; color: var(--dim); font-size: 0.86rem; }
 #wall-foot { margin: 0.3rem 0 0; font-size: 0.76rem; color: var(--dim); text-align: center; border-top: 2px dotted var(--line); padding-top: 0.3rem; }
